@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_blank">
+<style>
+  :root { --bg:#fff; --fg:#1f1f1f; --muted:#5f6368; --hover:#f1f3f4; --sel:#e8f0fe; --line:#e0e3e7; --accent:#1a73e8; --warn:#b06000; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1f1f1f; --fg:#e8eaed; --muted:#9aa0a6; --hover:#2d2e30; --sel:#2b3a55; --line:#3c4043; --accent:#8ab4f8; --warn:#fdd663; }
+  }
+  html, body { height:100%; }
+  body { margin:0; font:14px/1.45 "Segoe UI", Roboto, Arial, sans-serif; background:var(--bg); color:var(--fg);
+         display:flex; flex-direction:column; overflow:hidden; }
+  header { flex:none; background:var(--bg); border-bottom:1px solid var(--line);
+           padding:10px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; flex:1; min-width:140px; }
+  header input { flex:1; min-width:160px; padding:6px 10px; border:1px solid var(--line); border-radius:8px;
+                 background:var(--bg); color:var(--fg); font:inherit; }
+  button { padding:6px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg);
+           color:var(--fg); font:inherit; cursor:pointer; }
+  button:hover { background:var(--hover); }
+  #main { flex:1; display:flex; min-height:0; }
+  #left { flex:1; min-width:0; overflow:auto; padding:8px 8px 40px; }
+  #search { flex:2; min-width:200px; }
+  #results { margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  #results-head { display:flex; align-items:center; gap:8px; padding:4px 8px 6px; font-weight:600; }
+  #results-head span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #results-head button { padding:2px 10px; font-weight:normal; }
+  #results > ul { padding-left:0; }
+  li.newdoc .row { background:var(--sel); }
+  li.newdoc input { flex:1; min-width:0; padding:3px 8px; border:1px solid var(--accent); border-radius:6px;
+                    background:var(--bg); color:var(--fg); font:inherit; }
+  #newdoc { border-color:var(--accent); color:var(--accent); }
+  #newfolder { border-color:var(--accent); color:var(--accent); }
+  #upload { border-color:var(--accent); color:var(--accent); }
+  .palette { position:fixed; z-index:20; background:var(--bg); border:1px solid var(--line); border-radius:10px;
+             box-shadow:0 6px 24px rgba(0,0,0,.18); padding:10px; width:222px; }
+  .pal-title { font-size:12px; color:var(--muted); margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pal-grid { display:grid; grid-template-columns:repeat(6, 1fr); gap:6px; }
+  .sw { width:28px; height:28px; padding:0; border-radius:50%; border:2px solid transparent; transition:transform .1s; }
+  .sw:hover { transform:scale(1.15); }
+  .sw.cur { border-color:var(--fg); }
+  .pal-none { width:100%; margin-top:8px; padding:4px; }
+  .star { color:#f4b400; }
+  .emo-pal { width:300px; }
+  .emo-grid { grid-template-columns:repeat(8, 1fr); gap:2px; max-height:230px; overflow:auto; }
+  .emo { font-size:18px; padding:2px; border:1px solid transparent; border-radius:6px; background:none; line-height:1.4; }
+  .emo:hover { background:var(--hover); }
+  .emo.cur { border-color:var(--accent); }
+  .emo-own { width:100%; box-sizing:border-box; margin-top:8px; padding:4px 8px; border:1px solid var(--line);
+             border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  .row.dropto { outline:2px dashed var(--accent); outline-offset:-2px; background:var(--sel); }
+  li.dragging > .row { opacity:.45; }
+  #toast { position:fixed; left:50%; bottom:20px; transform:translate(-50%, 20px); opacity:0; pointer-events:none;
+           background:var(--fg); color:var(--bg); padding:8px 14px; border-radius:8px; display:flex; gap:14px;
+           align-items:center; box-shadow:0 6px 24px rgba(0,0,0,.25); transition:opacity .2s, transform .2s;
+           z-index:30; max-width:90vw; }
+  #toast.show { opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
+  #toast.warn { background:var(--warn); color:#000; }
+  #toast button { background:none; border:0; padding:0; color:inherit; font-weight:600; text-decoration:underline; }
+  li.picked > .row { box-shadow:inset 3px 0 0 var(--accent); }
+  li.cutting > .row { opacity:.5; }
+  .ctxmenu { position:fixed; z-index:25; background:var(--bg); border:1px solid var(--line); border-radius:8px;
+             box-shadow:0 6px 24px rgba(0,0,0,.18); padding:4px; min-width:210px; }
+  .ctxmenu button { display:flex; width:100%; gap:10px; align-items:center; border:0; border-radius:6px;
+                    padding:6px 10px; text-align:left; background:none; }
+  .ctxmenu button:hover:not(:disabled) { background:var(--hover); }
+  .ctxmenu button:disabled { color:var(--muted); cursor:default; }
+  .ctxmenu .lbl { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:260px; }
+  .ctxmenu .key { color:var(--muted); font-size:12px; }
+  .ctxmenu hr { border:0; border-top:1px solid var(--line); margin:4px 2px; }
+  .row input.rename { flex:1; min-width:0; padding:2px 6px; border:1px solid var(--accent); border-radius:4px;
+                      background:var(--bg); color:var(--fg); font:inherit; }
+  ul { list-style:none; margin:0; padding-left:20px; }
+  #tree > ul { padding-left:0; }
+  li.folder > ul { display:none; }
+  li.folder.open > ul { display:block; }
+  li.section { margin-bottom:4px; }
+  li.section > .row .name { font-weight:600; }
+  .row { display:flex; align-items:center; gap:6px; padding:3px 8px; border-radius:6px; }
+  .row:hover { background:var(--hover); }
+  li.file.sel > .row { background:var(--sel); }
+  li.folder > .row { cursor:pointer; user-select:none; }
+  .tw { width:14px; flex:none; text-align:center; color:var(--muted); transition:transform .15s; }
+  li.folder.open > .row .tw { transform:rotate(90deg); }
+  .ic { flex:none; width:18px; text-align:center; }
+  .name { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .meta { color:var(--muted); font-size:12px; white-space:nowrap; margin-left:10px; }
+  .go, .act { color:var(--muted); text-decoration:none; padding:0 4px; visibility:hidden; cursor:pointer;
+              background:none; border:0; font:inherit; }
+  .row:hover .go, .row:hover .act { visibility:visible; }
+  .go:hover, .act:hover { color:var(--accent); background:none; }
+  a.file { color:inherit; text-decoration:none; cursor:pointer; }
+  a.file:hover { color:var(--accent); text-decoration:underline; }
+  .note { color:var(--muted); font-style:italic; padding:3px 8px 3px 30px; }
+  .note.warn { color:var(--warn); font-style:normal; }
+  .hidden { display:none !important; }
+
+  #preview { display:none; flex:none; width:55%; min-width:320px; border-left:1px solid var(--line);
+             flex-direction:column; background:var(--bg); }
+  body.previewing #preview { display:flex; }
+  #pv-bar { flex:none; display:flex; align-items:center; gap:6px; padding:6px 10px; border-bottom:1px solid var(--line); }
+  #pv-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  #pv-bar button { padding:4px 10px; }
+  #pv-frame { flex:1; width:100%; border:0; background:#fff; }
+  #pv-hint { flex:none; color:var(--muted); font-size:12px; padding:4px 10px; border-top:1px solid var(--line); }
+
+  @media (max-width:800px) {
+    .meta { display:none; }
+    #preview { position:fixed; inset:0; width:auto; min-width:0; z-index:5; border-left:0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">📁 Drive stablo</h1>
+  <input id="search" type="search" placeholder="🔎 Search all of Drive (name and content) + Enter">
+  <input id="filter" type="search" placeholder="Filter open items…">
+  <button id="upload" title="Upload files from your computer to the last opened folder (or drag them onto a folder)">⬆ Upload</button>
+  <button id="newfolder" title="New folder in the last opened folder">＋ Folder</button>
+  <button id="newdoc" title="New Google Doc in the last opened folder">＋ Document</button>
+  <input type="file" id="upfiles" multiple hidden>
+  <input type="file" id="updir" webkitdirectory hidden>
+  <button id="collapse" title="Collapse all open folders">Collapse all</button>
+  <button id="reload" title="Reload">Refresh</button>
+</header>
+<div id="main">
+  <div id="left">
+    <div id="results" class="hidden"></div>
+    <div id="tree"></div>
+  </div>
+  <div id="preview">
+    <div id="pv-bar">
+      <span id="pv-title"></span>
+      <button id="pv-edit" title="Open in a small window (for editing)">✏️ Window</button>
+      <button id="pv-tab" title="Open in a new tab">↗ Tab</button>
+      <button id="pv-close" title="Close preview (Esc)">✕</button>
+    </div>
+    <iframe id="pv-frame" src="about:blank" allow="autoplay; fullscreen"></iframe>
+    <div id="pv-hint">↑ / ↓ previous / next file · Esc closes the preview · double-click a file to open it in a small window</div>
+  </div>
+</div>
+
+<script>
+const ROOT = <?!= JSON.stringify(rootId) ?>;
+
+const SECTIONS = [
+  { id:'__root',   name:'My Drive',        icon:'🏠', url:'https://drive.google.com/drive/my-drive',      lpath:'My Drive' },
+  { id:'__shared', name:'Shared with me', icon:'👥', url:'https://drive.google.com/drive/shared-with-me', lpath:null },
+  { id:'__drives', name:'Shared drives', icon:'🗄️', url:'https://drive.google.com/drive/shared-drives',  lpath:null },
+  { id:'__starred', name:'Starred',   icon:'⭐', url:'https://drive.google.com/drive/starred',         lpath:null }
+];
+
+const GAPPS = {
+  'application/vnd.google-apps.document': 'document',
+  'application/vnd.google-apps.spreadsheet': 'spreadsheets',
+  'application/vnd.google-apps.presentation': 'presentation'
+};
+
+function icon(mime, name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (mime === 'application/vnd.google-apps.document' || ['doc','docx','odt','rtf'].includes(ext)) return '📝';
+  if (mime === 'application/vnd.google-apps.spreadsheet' || ['xls','xlsx','csv','ods'].includes(ext)) return '📊';
+  if (mime === 'application/vnd.google-apps.presentation' || ['ppt','pptx','odp'].includes(ext)) return '📽️';
+  if (mime === 'application/pdf') return '📕';
+  if (mime.startsWith('image/')) return '🖼️';
+  if (mime.startsWith('video/')) return '🎞️';
+  if (mime.startsWith('audio/')) return '🎵';
+  if (['zip','rar','7z'].includes(ext)) return '🗜️';
+  if (mime === 'application/vnd.google-apps.shortcut') return '🔗';
+  return '📄';
+}
+
+function fmtSize(b) {
+  if (!b) return '';
+  const u = ['B','KB','MB','GB'];
+  let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i ? b.toFixed(1) : b) + ' ' + u[i];
+}
+
+function fmtDate(t) {
+  return new Date(t).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
+}
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+// ---- Preview and small window ----
+let current = null; // li of the file being previewed
+
+function previewUrl(f) {
+  const g = GAPPS[f.mime];
+  return g ? 'https://docs.google.com/' + g + '/d/' + f.id + '/preview'
+           : 'https://drive.google.com/file/d/' + f.id + '/preview';
+}
+
+function showPreview(li) {
+  const f = li._f;
+  select(li);
+  if (current) current.classList.remove('sel');
+  current = li;
+  li.classList.add('sel');
+  document.body.classList.add('previewing');
+  document.getElementById('pv-title').textContent = f.name;
+  document.getElementById('pv-title').title = f.name;
+  document.getElementById('pv-frame').src = previewUrl(f);
+}
+
+/** A file is visible if it is not filtered out and all folders above it are open. */
+function isShown(li) {
+  if (li.classList.contains('hidden')) return false;
+  for (let p = li.parentElement; p && p.id !== 'left'; p = p.parentElement) {
+    if (p.classList.contains('hidden')) return false;
+    if (p.tagName === 'LI' && p.classList.contains('folder') && !p.classList.contains('open')) return false;
+  }
+  return true;
+}
+
+function closePreview() {
+  if (current) current.classList.remove('sel');
+  current = null;
+  document.body.classList.remove('previewing');
+  document.getElementById('pv-frame').src = 'about:blank';
+}
+
+function openPopup(f) {
+  const sw = screen.availWidth || 1600, sh = screen.availHeight || 900;
+  const w = Math.min(1100, Math.round(sw * 0.5));
+  const h = sh - 40;
+  const left = (screen.availLeft || 0) + sw - w;
+  const top = screen.availTop || 0;
+  const win = window.open(f.url, 'driveStabloDoc',
+    'popup=yes,width=' + w + ',height=' + h + ',left=' + left + ',top=' + top);
+  if (win) win.focus();
+  return win;
+}
+
+function makeFolder(f, section) {
+  const li = el('li', 'folder' + (section ? ' section' : ''));
+  li.dataset.id = f.id;
+  li.dataset.name = f.name.toLowerCase();
+  const row = el('div', 'row');
+  li._f = f;
+  row.append(el('span', 'tw', '▸'), folderIcon(f), el('span', 'name', f.name));
+  if (f.owner) row.append(el('span', 'meta', f.owner));
+  const go = el('a', 'go', '↗');
+  go.href = f.url;
+  go.title = 'Open in Google Drive';
+  go.addEventListener('click', ev => ev.stopPropagation());
+  if (!f.icon) {
+    const paint = el('button', 'act', '🎨');
+    paint.title = 'Change folder color (or right-click the folder)';
+    paint.addEventListener('click', ev => { ev.stopPropagation(); openPalette(li, paint.getBoundingClientRect()); });
+    row.append(paint);
+  }
+  if (canHoldDocs(f.id)) {
+    const plus = el('button', 'act', '＋');
+    plus.title = 'New Google Doc in this folder';
+    plus.addEventListener('click', ev => { ev.stopPropagation(); startNewDoc(li); });
+    row.append(plus);
+  }
+  row.append(go);
+  row.addEventListener('click', () => { select(li); toggle(li); });
+  row.addEventListener('contextmenu', ev => { ev.preventDefault(); select(li); openMenu(li, ev.clientX, ev.clientY); });
+  li.append(row, el('ul'));
+  if (!f.icon) makeDraggable(li, row);
+  if (canHoldDocs(f.id)) makeDropTarget(li, row);
+  starMark(li);
+  return li;
+}
+
+function makeFile(f) {
+  const li = el('li', 'file');
+  li._f = f;
+  li.dataset.name = f.name.toLowerCase();
+  const row = el('div', 'row');
+  const a = el('a', 'file name', f.name);
+  a.href = f.url;
+  a.title = f.name + ' (click: preview · double-click: small window)';
+  a.draggable = false; // the whole row is dragged, not the link
+  a.addEventListener('click', ev => {
+    if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button !== 0) return; // Ctrl+click = new tab
+    ev.preventDefault();
+    showPreview(li);
+  });
+  a.addEventListener('dblclick', ev => { ev.preventDefault(); openPopup(f); });
+
+  const edit = el('button', 'act', '✏️');
+  edit.title = 'Open in a small window';
+  edit.addEventListener('click', () => openPopup(f));
+  const go = el('a', 'go', '↗');
+  go.href = f.url;
+  go.title = 'Open in a new tab';
+
+  const meta = [f.owner, fmtSize(f.size), fmtDate(f.updated)].filter(Boolean).join(' · ');
+  row.append(el('span', 'tw', ''), el('span', 'ic', icon(f.mime, f.name)), a, el('span', 'meta', meta), edit);
+  if (!/^application\/vnd\.google-apps\./.test(f.mime)) {
+    const pc = el('button', 'act', '🖥️');
+    pc.title = 'Open in the desktop app (Word, Excel, PDF…) from the G: drive';
+    pc.addEventListener('click', ev => { ev.stopPropagation(); openLocal(li); });
+    row.append(pc);
+  }
+  if (f.inSearch && f.parent) {
+    const up = el('a', 'go', '📂');
+    up.href = 'https://drive.google.com/drive/folders/' + f.parent;
+    up.title = 'Open the folder that contains this file';
+    row.append(up);
+  }
+  row.append(go);
+  li.append(row);
+  makeDraggable(li, row);
+  row.addEventListener('contextmenu', ev => { ev.preventDefault(); select(li); openMenu(li, ev.clientX, ev.clientY); });
+  starMark(li);
+  return li;
+}
+
+// ---- Cache and prefetching ----
+const cache = {};    // id → folder contents
+const pending = {};  // id → list of callbacks waiting for data
+
+function deliver(id, data) {
+  cache[id] = data;
+  const cbs = pending[id] || [];
+  delete pending[id];
+  cbs.forEach(cb => cb(null, data));
+}
+
+function fail(id, err) {
+  const cbs = pending[id] || [];
+  delete pending[id];
+  cbs.forEach(cb => cb(err));
+}
+
+function deliverMany(res) {
+  Object.keys(res).forEach(id => deliver(id, res[id]));
+}
+
+/** Data for one folder: from the cache, or wait for a request already in progress, or ask the server. */
+function getData(id, cb) {
+  if (cache[id]) return cb(null, cache[id]);
+  if (pending[id]) { pending[id].push(cb); return; }
+  pending[id] = [cb];
+  const run = google.script.run.withFailureHandler(err => fail(id, err));
+  if (id === '__shared' || id === '__drives' || id === '__starred') {
+    run.withSuccessHandler(d => deliver(id, d)).getSpecial(id);
+  } else {
+    run.withSuccessHandler(deliverMany).getChildrenMany([id]);
+  }
+}
+
+/** Loads the given folders in the background (30 per request). */
+function prefetch(ids) {
+  ids = ids.filter(id => !cache[id] && !pending[id]);
+  for (let i = 0; i < ids.length; i += 30) {
+    const chunk = ids.slice(i, i + 30);
+    chunk.forEach(id => { pending[id] = []; });
+    google.script.run
+      .withSuccessHandler(deliverMany)
+      .withFailureHandler(err => chunk.forEach(id => fail(id, err)))
+      .getChildrenMany(chunk);
+  }
+}
+
+function load(ul, id, onDone) {
+  if (!cache[id]) ul.replaceChildren(el('li', 'note', 'Loading…'));
+  getData(id, (err, data) => {
+    if (err) {
+      ul.replaceChildren(el('li', 'note warn', 'Error: ' + err.message));
+      const li = ul.parentElement;
+      if (li && li.dataset) delete li.dataset.loaded; // allow a retry
+      return;
+    }
+    render(ul, data);
+    if (onDone) onDone(data);
+    prefetch(data.folders.map(f => f.id)); // preload the next level
+  });
+}
+
+function render(ul, data) {
+  ul.replaceChildren();
+  if (data.notice) ul.append(el('li', 'note warn', data.notice));
+  if (!data.folders.length && !data.files.length) {
+    if (!data.notice) ul.append(el('li', 'note', '(empty)'));
+    return;
+  }
+  data.folders.forEach(f => ul.append(makeFolder(f)));
+  data.files.forEach(f => ul.append(makeFile(f)));
+  applyFilter();
+}
+
+function toggle(li) {
+  const ul = li.querySelector(':scope > ul');
+  const opened = li.classList.toggle('open');
+  if (opened && canHoldDocs(li.dataset.id)) lastFolder = li;
+  if (opened && !li.dataset.loaded) {
+    li.dataset.loaded = '1';
+    load(ul, li.dataset.id);
+  }
+}
+
+// ---- Open in the desktop app (via Drive for desktop + the "drivestablo:" helper) ----
+let rootPath = null; // path of the root folder when ?folder=ID is used
+
+/** Path of the file on the G: drive (e.g. "My Drive/Clients/Offer.docx"), or null if it is not on the disk. */
+function localPath(li) {
+  const parts = [];
+  for (let p = li; p; p = p.parentElement && p.parentElement.closest('li.folder')) {
+    const f = p._f;
+    if (f && f.lpath !== undefined) return f.lpath === null ? null : [f.lpath].concat(parts).join('/');
+    parts.unshift(f ? f.name : '');
+  }
+  if (li.closest('#results')) return null; // the path for a search result has not arrived yet
+  return rootPath ? [rootPath].concat(parts).join('/') : null;
+}
+
+function flash(li, msg, ok) {
+  const row = li.querySelector(':scope > .row');
+  const old = row.querySelector('.flash');
+  if (old) old.remove();
+  const m = el('span', 'meta flash', msg);
+  m.style.color = ok ? 'var(--accent)' : 'var(--warn)';
+  row.insertBefore(m, row.querySelector('.name').nextSibling);
+  setTimeout(() => m.remove(), 7000);
+}
+
+function openLocal(li) {
+  const path = localPath(li);
+  if (!path) {
+    flash(li, li.closest('#results') ? 'The path is still loading, try again in a second' :
+      'This file is not on your G: drive (e.g. "Shared with me") – open it with ↗');
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = 'drivestablo:open?p=' + encodeURIComponent(path);
+  a.target = '_top'; // the Apps Script page runs in a sandboxed frame; external links are launched by the top window
+  document.body.append(a);
+  a.click();
+  a.remove();
+  flash(li, 'Opening on your computer… (if nothing happens, install Google Drive for desktop and the Drive stablo helper – see README)', true);
+}
+
+// ---- Several tabs: transfer between tabs and keeping views in sync ----
+const XMIME = 'application/x-drive-stablo';
+const chan = ('BroadcastChannel' in window) ? new BroadcastChannel('drive-stablo') : null;
+let myRoot = null;
+
+function share(m) {
+  if (chan) { try { chan.postMessage(m); } catch (e) {} }
+}
+
+/** Is an item being dragged from another Drive stablo tab? */
+function isItemDrag(ev) {
+  return !dragged && !!ev.dataTransfer && [...(ev.dataTransfer.types || [])].indexOf(XMIME) >= 0;
+}
+
+if (chan) chan.onmessage = ev => {
+  const m = ev.data || {};
+  try {
+    if (m.type === 'move') applyMove(m.f, m.isFolder, m.fromKey, m.toKey);
+    else if (m.type === 'add') insertNew(m.f, m.isFolder, m.key);
+    else if (m.type === 'remove') removeEverywhere(m.id, m.isFolder);
+    else if (m.type === 'rename') applyRename(m.id, m.name);
+    else if (m.type === 'color') setColorEverywhere(m.id, m.color);
+    else if (m.type === 'emoji') setEmojiEverywhere(m.id, m.emoji);
+    else if (m.type === 'star') applyStar(m.f, m.isFolder, m.on, m.lpath);
+    else if (m.type === 'clip') {
+      document.querySelectorAll('li.cutting').forEach(x => x.classList.remove('cutting'));
+      clip = m.clip ? { f: m.clip.f, isFolder: m.clip.isFolder, mode: m.clip.mode, li: null } : null;
+      if (clip && clip.mode === 'cut') itemNodes(clip.f.id).forEach(n => n.classList.add('cutting'));
+    }
+  } catch (e) {}
+};
+
+/** Item dropped from another tab: move it (or copy it, with Ctrl). */
+function dropFromOtherTab(d, li, copy) {
+  if (!d || !d.f) return;
+  const tgt = { key: li.dataset.id, name: li._f.name, li: li };
+  if (myRoot && d.root && d.root !== myRoot) {
+    toast('Items cannot be dragged between different Google accounts – download the file and upload it to the other account.', null, true);
+    return;
+  }
+  if (d.isFolder && d.f.id === tgt.key) return;
+  if (copy) { copyTo(d.f, d.isFolder, tgt); return; }
+  if (d.fromKey === tgt.key) { toast('"' + d.f.name + '" is already in folder "' + tgt.name + '".'); return; }
+  doMove(d.f, d.isFolder, tgt.key, tgt.name, true);
+}
+
+function copyTo(f, isFolder, tgt) {
+  toast('Copying "' + f.name + '"…' + (isFolder ? ' (a folder with all its content may take a while)' : ''));
+  google.script.run
+    .withSuccessHandler(r => {
+      insertNew(r.item, r.isFolder, tgt.key);
+      share({ type: 'add', f: r.item, isFolder: r.isFolder, key: tgt.key });
+      toast('"' + r.item.name + '" copied to "' + tgt.name + '"' + (r.isFolder ? ' (' + r.count + ' items)' : ''));
+    })
+    .withFailureHandler(err => toast('Not copied: ' + err.message, null, true))
+    .copyItem(f.id, tgt.key);
+}
+
+// ---- Moving: drag and drop ----
+let dragged = null, hoverTimer = null;
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+/** Key of the folder containing the item (as in the cache), or null for search results. */
+function parentKeyOf(li) {
+  const p = li.parentElement.closest('li.folder');
+  if (p) return p.dataset.id;
+  return li.closest('#results') ? null : (ROOT || null);
+}
+
+function canDrop(target) {
+  if (!dragged || !target || !canHoldDocs(target.dataset.id)) return false;
+  if (dragged === target || dragged.contains(target)) return false;          // into itself or its own subfolder
+  if (dragged.classList.contains('folder') && dragged.dataset.id === target.dataset.id) return false;
+  if (parentKeyOf(dragged) === target.dataset.id) return false;              // already there
+  return true;
+}
+
+function clearDrop() {
+  clearTimeout(hoverTimer);
+  document.querySelectorAll('.row.dropto').forEach(r => r.classList.remove('dropto'));
+}
+
+function makeDraggable(li, row) {
+  row.draggable = true;
+  row.addEventListener('dragstart', ev => {
+    ev.stopPropagation();
+    dragged = li;
+    li.classList.add('dragging');
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'copyMove';
+      ev.dataTransfer.setData('text/plain', li._f.name);
+      ev.dataTransfer.setData(XMIME, JSON.stringify({ f: li._f, isFolder: li.classList.contains('folder'),
+                                                      root: myRoot, fromKey: parentKeyOf(li) }));
+    }
+  });
+  row.addEventListener('dragend', () => { li.classList.remove('dragging'); dragged = null; clearDrop(); });
+}
+
+/** Are files being dragged from the computer (not an item from the tree)? */
+function isFileDrag(ev) {
+  return !dragged && !!ev.dataTransfer && [...(ev.dataTransfer.types || [])].indexOf('Files') >= 0;
+}
+
+function makeDropTarget(li, row) {
+  row.addEventListener('dragover', ev => {
+    const ext = isFileDrag(ev), xtab = isItemDrag(ev);
+    if (!ext && !xtab && !canDrop(li)) return;
+    ev.preventDefault();
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = (ext || (xtab && ev.ctrlKey)) ? 'copy' : 'move';
+  });
+  row.addEventListener('dragenter', ev => {
+    const ext = isFileDrag(ev), xtab = isItemDrag(ev);
+    if (!ext && !xtab && !canDrop(li)) return;
+    clearDrop();
+    row.classList.add('dropto');
+    if (!li.classList.contains('open')) {
+      hoverTimer = setTimeout(() => { if ((dragged || ext || xtab) && !li.classList.contains('open')) toggle(li); }, 800);
+    }
+  });
+  row.addEventListener('dragleave', ev => {
+    if (row.contains(ev.relatedTarget)) return;
+    row.classList.remove('dropto');
+    clearTimeout(hoverTimer);
+  });
+  row.addEventListener('drop', ev => {
+    ev.preventDefault();
+    if (isFileDrag(ev)) {
+      ev.stopPropagation();
+      clearDrop();
+      const tgt = { key: li.dataset.id, name: li._f.name, li: li };
+      collectDropped(ev.dataTransfer).then(list => uploadList(list, tgt))
+        .catch(err => toast('Upload failed: ' + err.message, null, true));
+      return;
+    }
+    if (isItemDrag(ev)) {
+      ev.stopPropagation();
+      clearDrop();
+      let d = null;
+      try { d = JSON.parse(ev.dataTransfer.getData(XMIME)); } catch (e) {}
+      dropFromOtherTab(d, li, ev.ctrlKey);
+      return;
+    }
+    const src = dragged;
+    clearDrop();
+    if (src && canDrop(li)) {
+      dragged = null;
+      src.classList.remove('dragging');
+      doMove(src._f, src.classList.contains('folder'), li.dataset.id, li._f.name, true);
+    }
+  });
+}
+
+function nameOfKey(key) {
+  if (key === '__root') return 'My Drive';
+  const li = [...document.querySelectorAll('#tree li.folder')].find(l => l.dataset.id === key);
+  return li ? li._f.name : 'previous folder';
+}
+
+function doMove(f, isFolder, toKey, targetName, allowUndo) {
+  toast('Moving "' + f.name + '"…');
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r.same) { toast('"' + f.name + '" is already in folder "' + targetName + '".'); return; }
+      applyMove(f, isFolder, r.fromKey, toKey);
+      share({ type: 'move', f: f, isFolder: isFolder, fromKey: r.fromKey, toKey: toKey });
+      const undo = (allowUndo && r.fromKey)
+        ? () => doMove(f, isFolder, r.fromKey, nameOfKey(r.fromKey), false) : null;
+      toast('"' + f.name + '" moved to "' + targetName + '"', undo);
+    })
+    .withFailureHandler(err => toast('Not moved: ' + err.message, null, true))
+    .moveItem(f.id, toKey);
+}
+
+function insertSorted(ul, li, isFolder) {
+  const same = [...ul.children].filter(c => c._f && c.classList.contains(isFolder ? 'folder' : 'file'));
+  const before = same.find(c => collator.compare(c._f.name, li._f.name) > 0);
+  if (before) ul.insertBefore(li, before);
+  else if (isFolder) ul.insertBefore(li, ul.querySelector(':scope > li.file'));
+  else ul.append(li);
+}
+
+/** After a successful move, update the cache and the tree view. */
+function applyMove(f, isFolder, fromKey, toKey) {
+  const arr = isFolder ? 'folders' : 'files';
+  const node = [...document.querySelectorAll('#tree li')].find(li =>
+    li._f && li._f.id === f.id && !li.classList.contains('section') && parentKeyOf(li) === fromKey);
+  const obj = node ? node._f : f;
+  if (fromKey && cache[fromKey]) cache[fromKey][arr] = cache[fromKey][arr].filter(x => x.id !== f.id);
+  if (cache[toKey]) {
+    if (!cache[toKey][arr].some(x => x.id === f.id)) cache[toKey][arr].push(obj);
+    cache[toKey][arr].sort((a, b) => collator.compare(a.name, b.name));
+  }
+  if (node) node.remove();
+  const target = [...document.querySelectorAll('#tree li.folder')].find(li => li.dataset.id === toKey && li.dataset.loaded);
+  const tul = target ? target.querySelector(':scope > ul') : (toKey === ROOT ? document.querySelector('#tree > ul') : null);
+  if (tul && cache[toKey]) {
+    insertSorted(tul, node || (isFolder ? makeFolder(obj) : makeFile(obj)), isFolder);
+    const note = tul.querySelector(':scope > li.note:not(.warn)');
+    if (note) note.remove(); // "(empty)"
+  }
+  // search results: the path on the disk has changed
+  document.querySelectorAll('#results li').forEach(li => {
+    if (!li._f || li._f.id !== f.id) return;
+    li._f.lpath = null;
+    google.script.run.withSuccessHandler(p => { li._f.lpath = p[f.id] === undefined ? null : p[f.id]; }).getLocalPaths([f.id]);
+  });
+}
+
+let toastTimer = null;
+function toast(msg, undo, warn) {
+  let t = document.getElementById('toast');
+  if (!t) { t = el('div'); t.id = 'toast'; document.body.append(t); }
+  t.replaceChildren(el('span', null, msg));
+  t.classList.toggle('warn', !!warn);
+  if (undo) {
+    const b = el('button', null, 'Undo');
+    b.addEventListener('click', ev => { ev.stopPropagation(); t.classList.remove('show'); undo(); });
+    t.append(b);
+  }
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), undo ? 8000 : 4000);
+}
+
+// ---- Upload from the computer (button, right-click, or dragging files/folders) ----
+const gs = (fn, ...args) => new Promise((res, rej) =>
+  google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+const UP_FIELDS = 'id,name,mimeType,size,modifiedTime,webViewLink,parents';
+let upToken = null, upTarget = null;
+
+async function uploadToken() {
+  if (upToken && Date.now() - upToken.t < 40 * 60 * 1000) return upToken;
+  const r = await gs('getUploadToken');
+  upToken = { token: r.token, root: r.root, t: Date.now() };
+  return upToken;
+}
+
+/** Uploads one file directly to Drive (resumable upload) with progress tracking. */
+async function uploadOne(file, parentId, onProgress) {
+  const tk = await uploadToken();
+  const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=' +
+    encodeURIComponent(UP_FIELDS), {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + tk.token,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': file.type || 'application/octet-stream'
+    },
+    body: JSON.stringify({ name: file.name, parents: [parentId] })
+  });
+  if (!init.ok) throw new Error('Drive rejected the upload (' + init.status + ')');
+  const loc = init.headers.get('Location');
+  if (loc) return sendXhr('PUT', loc, {}, file, onProgress);
+  // fallback: everything in one request (multipart)
+  const b = 'ds' + Math.random().toString(36).slice(2);
+  const meta = JSON.stringify({ name: file.name, parents: [parentId] });
+  const body = new Blob(['--' + b + '\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n' + meta +
+    '\r\n--' + b + '\r\nContent-Type: ' + (file.type || 'application/octet-stream') + '\r\n\r\n', file, '\r\n--' + b + '--']);
+  return sendXhr('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=' +
+    encodeURIComponent(UP_FIELDS), { 'Authorization': 'Bearer ' + tk.token, 'Content-Type': 'multipart/related; boundary=' + b },
+    body, onProgress);
+}
+
+function sendXhr(method, url, headers, body, onProgress) {
+  return new Promise((res, rej) => {
+    const x = new XMLHttpRequest();
+    x.open(method, url);
+    Object.keys(headers).forEach(h => x.setRequestHeader(h, headers[h]));
+    x.upload.onprogress = e => { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+    x.onload = () => (x.status >= 200 && x.status < 300) ? res(JSON.parse(x.responseText))
+                                                       : rej(new Error('Upload failed (' + x.status + ')'));
+    x.onerror = () => rej(new Error('Network error during upload'));
+    x.send(body);
+  });
+}
+
+/** Plural: 1 file, 2 files. */
+function plural(n, one, few, many) {
+  return n + ' ' + (n === 1 ? one : many);
+}
+
+function toItem(f) {
+  return { id: f.id, name: f.name, url: f.webViewLink || ('https://drive.google.com/file/d/' + f.id + '/view'),
+           mime: f.mimeType || '', size: Number(f.size || 0), updated: Date.parse(f.modifiedTime) || Date.now(),
+           owner: '', parent: (f.parents && f.parents[0]) || '' };
+}
+
+/** Files (and folders) dragged from the computer → [{file, path}] or [{dir:true, path:'a/b/'}]. */
+function collectDropped(dt) {
+  // DataTransfer is valid only during the event: take the items right away, before any await
+  const entries = [...(dt.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  const plain = [...(dt.files || [])];
+  if (!entries.length) return Promise.resolve(plain.map(f => ({ file: f, path: f.name })));
+  const out = [];
+  const walk = async (entry, prefix) => {
+    if (entry.isFile) {
+      const file = await new Promise((res, rej) => entry.file(res, rej));
+      out.push({ file: file, path: prefix + file.name });
+    } else if (entry.isDirectory) {
+      const dir = prefix + entry.name + '/';
+      out.push({ dir: true, path: dir });
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        for (const e of batch) await walk(e, dir);
+      } while (batch.length);
+    }
+  };
+  return (async () => { for (const e of entries) await walk(e, ''); return out; })();
+}
+
+/** Uploads a list of files to the given folder, creating subfolders as needed. */
+async function uploadList(list, tgt) {
+  const files = list.filter(x => x.file);
+  if (!list.length) return;
+  if (tgt.li && !tgt.li.classList.contains('open')) toggle(tgt.li);
+  await new Promise(r => getData(tgt.key, () => r())); // target folder contents loaded before adding
+  const dirKey = { '': tgt.key };
+  const dirs = [...new Set(list.flatMap(x => {
+    const parts = x.path.split('/').slice(0, -1);
+    return parts.map((_, i) => parts.slice(0, i + 1).join('/'));
+  }))].sort((a, b) => a.split('/').length - b.split('/').length);
+  for (const d of dirs) {
+    const parent = d.split('/').slice(0, -1).join('/');
+    toast('📂 Creating folder "' + d + '"…');
+    const f = await gs('createFolder', d.split('/').pop(), dirKey[parent]);
+    dirKey[d] = f.id;
+    insertNew(f, true, dirKey[parent]);
+    share({ type: 'add', f: f, isFolder: true, key: dirKey[parent] });
+  }
+  const tk = await uploadToken();
+  let ok = 0;
+  const failed = [];
+  for (let i = 0; i < files.length; i++) {
+    const x = files[i];
+    const dir = x.path.split('/').slice(0, -1).join('/');
+    const key = dirKey[dir];
+    const label = '⬆ Uploading ' + (i + 1) + '/' + files.length + ': "' + x.file.name + '"';
+    toast(label + '…');
+    try {
+      const r = await uploadOne(x.file, key === '__root' ? tk.root : key,
+        p => toast(label + ' – ' + Math.round(p * 100) + '%'));
+      const it = toItem(r);
+      insertNew(it, false, key);
+      share({ type: 'add', f: it, isFolder: false, key: key });
+      ok++;
+    } catch (e) {
+      failed.push(x.file.name + ' (' + e.message + ')');
+    }
+  }
+  const summary = '✅ Uploaded to "' + tgt.name + '": ' + plural(ok, 'file', 'files', 'files') +
+                  (dirs.length ? ', ' + plural(dirs.length, 'folder', 'folders', 'folders') : '');
+  if (failed.length) toast(summary + ' · failed: ' + failed.join(', '), null, true);
+  else toast(summary);
+}
+
+/** Opens the file (or folder) picker for the given folder. */
+function pickUpload(tgt, folder) {
+  upTarget = tgt;
+  document.getElementById(folder ? 'updir' : 'upfiles').click();
+}
+
+function onPicked(ev) {
+  const input = ev.target;
+  const list = [...input.files].map(f => ({ file: f, path: f.webkitRelativePath || f.name }));
+  input.value = '';
+  if (upTarget && list.length) {
+    uploadList(list, upTarget).catch(err => toast('Upload failed: ' + err.message, null, true));
+  }
+}
+
+// ---- New folder ----
+/** Shows a name field for a new folder in the given folder (li), or at the tree root if li is not given. */
+function startNewFolder(li) {
+  const folderId = li ? li.dataset.id : (ROOT || '__root');
+  if (li && !li.classList.contains('open')) toggle(li);
+  const show = () => {
+    const ul = li ? li.querySelector(':scope > ul') : document.querySelector('#tree > ul');
+    const old = document.querySelector('li.newdoc');
+    if (old) old.remove();
+    const form = el('li', 'newdoc');
+    const row = el('div', 'row');
+    const input = el('input');
+    input.placeholder = 'New folder name – Enter to create, Esc to cancel';
+    const status = el('span', 'meta', '');
+    row.append(el('span', 'tw', ''), el('span', 'ic', '📁'), input, status);
+    form.append(row);
+    ul.prepend(form);
+    input.focus();
+    input.addEventListener('click', ev => ev.stopPropagation());
+    input.addEventListener('keydown', ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Escape') { form.remove(); return; }
+      if (ev.key !== 'Enter' || input.disabled) return;
+      input.disabled = true;
+      status.textContent = 'Creating folder…';
+      google.script.run
+        .withSuccessHandler(f => {
+          form.remove();
+          insertNew(f, true, folderId);
+          share({ type: 'add', f: f, isFolder: true, key: folderId });
+          const node = itemNodes(f.id)[0];
+          if (node) { select(node); node.scrollIntoView({ block: 'nearest' }); }
+          toast('Created folder "' + f.name + '"');
+        })
+        .withFailureHandler(err => { input.disabled = false; status.textContent = 'Error: ' + err.message; })
+        .createFolder(input.value, folderId);
+    });
+  };
+  // if the folder is still loading, wait until it is shown before adding the field
+  if (li && !cache[folderId]) getData(folderId, () => setTimeout(show, 0));
+  else show();
+}
+
+// ---- Selection, context menu, cut / copy / paste, rename, delete ----
+let selLi = null, menu = null, clip = null;
+
+function select(li) {
+  if (selLi && selLi !== li) selLi.classList.remove('picked');
+  selLi = li;
+  if (li) li.classList.add('picked');
+}
+
+/** A real item (not a section, shared drive, or folder shortcut). */
+function isEditable(li) {
+  return !!(li && li._f && !li._f.icon);
+}
+
+/** All displayed copies of the same item (tree + search results). */
+function itemNodes(id) {
+  return [...document.querySelectorAll('#left li')].filter(l => l._f && l._f.id === id && !l._f.icon);
+}
+
+/** Paste target: the clicked folder, or the folder containing the clicked file. */
+function pasteTarget(li) {
+  if (!li) return null;
+  if (li.classList.contains('folder') && canHoldDocs(li.dataset.id)) return { key: li.dataset.id, name: li._f.name, li: li };
+  const p = li.parentElement.closest('li.folder');
+  if (p) return canHoldDocs(p.dataset.id) ? { key: p.dataset.id, name: p._f.name, li: p } : null;
+  if (ROOT && !li.closest('#results')) {
+    return { key: ROOT, name: document.getElementById('title').textContent.replace(/^📁 /, ''), li: null };
+  }
+  return null;
+}
+
+function closeMenu() {
+  if (menu) { menu.remove(); menu = null; }
+}
+
+function openMenu(li, x, y) {
+  closeMenu();
+  closePalette();
+  const ed = isEditable(li), isFolder = li.classList.contains('folder');
+  const tgt = pasteTarget(li);
+  menu = el('div', 'ctxmenu');
+  const item = (ico, label, key, fn, enabled) => {
+    const b = el('button');
+    b.append(el('span', null, ico), el('span', 'lbl', label), el('span', 'key', key || ''));
+    b.disabled = !enabled;
+    b.addEventListener('click', ev => { ev.stopPropagation(); closeMenu(); fn(); });
+    menu.append(b);
+  };
+  const where = tgt ? ' in "' + tgt.name + '"' : '';
+  item('📁', 'New folder' + where, '', () => startNewFolder(tgt.li), !!tgt);
+  item('📝', 'New document' + where, '', () => startNewDoc(tgt.li), !!tgt);
+  item('⬆️', 'Upload files' + where.replace(' in ', ' to '), '', () => pickUpload(tgt, false), !!tgt);
+  item('📂', 'Upload folder' + where.replace(' in ', ' to '), '', () => pickUpload(tgt, true), !!tgt);
+  menu.append(el('hr'));
+  item('✏️', 'Rename', 'F2', () => startRename(li), ed);
+  item(li._f && li._f.starred ? '☆' : '⭐', li._f && li._f.starred ? 'Remove star' : 'Add star', '',
+       () => toggleStar(li), ed);
+  item('✂️', 'Cut', 'Ctrl+X', () => setClip(li, 'cut'), ed);
+  item('📄', 'Copy', 'Ctrl+C', () => setClip(li, 'copy'), ed);
+  item('📋', clip && tgt ? 'Paste "' + clip.f.name + '" in "' + tgt.name + '"' : 'Paste', 'Ctrl+V',
+       () => paste(li), !!(clip && tgt && pasteAllowed(tgt)));
+  if (isFolder && ed) {
+    menu.append(el('hr'));
+    item('🎨', 'Folder color…', '', () => openPalette(li, { left: x, top: y, bottom: y }), true);
+    item('😀', 'Folder icon…', '', () => openEmojiPicker(li, { left: x, top: y, bottom: y }), true);
+  }
+  menu.append(el('hr'));
+  item('🗑️', 'Delete (to Trash)', 'Delete', () => deleteItem(li), ed);
+  menu.addEventListener('click', ev => ev.stopPropagation());
+  menu.addEventListener('contextmenu', ev => ev.preventDefault());
+  document.body.append(menu);
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - mw - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, innerHeight - mh - 8)) + 'px';
+}
+
+function setClip(li, mode) {
+  document.querySelectorAll('li.cutting').forEach(x => x.classList.remove('cutting'));
+  clip = { f: li._f, isFolder: li.classList.contains('folder'), mode: mode, li: li };
+  if (mode === 'cut') li.classList.add('cutting');
+  share({ type: 'clip', clip: { f: li._f, isFolder: clip.isFolder, mode: mode } }); // Ctrl+V works in the other tab too
+  toast((mode === 'cut' ? '✂️ Cut: "' : '📄 Copied: "') + li._f.name + '" – right-click a folder → Paste (or Ctrl+V)');
+}
+
+function pasteAllowed(tgt) {
+  if (!clip) return false;
+  if (clip.isFolder && clip.f.id === tgt.key) return false;
+  if (clip.isFolder && tgt.li && clip.li && document.body.contains(clip.li) && clip.li.contains(tgt.li)) return false;
+  return true;
+}
+
+function paste(li) {
+  const tgt = pasteTarget(li);
+  if (!clip || !tgt) return;
+  if (!pasteAllowed(tgt)) { toast('A folder can\'t be placed inside itself or its own subfolder.', null, true); return; }
+  const c = clip;
+  if (c.mode === 'cut') {
+    clip = null;
+    if (c.li) c.li.classList.remove('cutting');
+    share({ type: 'clip', clip: null });
+    doMove(c.f, c.isFolder, tgt.key, tgt.name, true);
+    return;
+  }
+  copyTo(c.f, c.isFolder, tgt);
+}
+
+/** Inserts a new item into the cache and into every open view of that folder. */
+function insertNew(obj, isFolder, key) {
+  if (!cache[key]) return; // folder not loaded yet – it will show up when opened
+  const arr = isFolder ? 'folders' : 'files';
+  if (!cache[key][arr].some(x => x.id === obj.id)) cache[key][arr].push(obj);
+  cache[key][arr].sort((a, b) => collator.compare(a.name, b.name));
+  const uls = [...document.querySelectorAll('#left li.folder')]
+    .filter(l => l.dataset.id === key && l.dataset.loaded).map(l => l.querySelector(':scope > ul'));
+  if (key === ROOT) uls.push(document.querySelector('#tree > ul'));
+  uls.forEach(ul => {
+    if ([...ul.children].some(c => c._f && c._f.id === obj.id)) return;
+    insertSorted(ul, isFolder ? makeFolder(obj) : makeFile(obj), isFolder);
+    const note = ul.querySelector(':scope > li.note:not(.warn)');
+    if (note) note.remove(); // "(empty)"
+  });
+}
+
+/** Removes an item from the cache and from all views (after deletion). */
+function removeEverywhere(id, isFolder) {
+  const arr = isFolder ? 'folders' : 'files';
+  Object.keys(cache).forEach(k => { const c = cache[k]; if (c && c[arr]) c[arr] = c[arr].filter(x => x.id !== id); });
+  itemNodes(id).forEach(n => {
+    if (current && (n === current || n.contains(current))) closePreview();
+    if (selLi && (n === selLi || n.contains(selLi))) selLi = null;
+    n.remove();
+  });
+  if (clip && clip.f.id === id) clip = null;
+}
+
+function deleteItem(li) {
+  if (!isEditable(li)) return;
+  const f = li._f, isFolder = li.classList.contains('folder');
+  const parentKey = parentKeyOf(li);
+  toast('Deleting "' + f.name + '"…');
+  google.script.run
+    .withSuccessHandler(() => {
+      removeEverywhere(f.id, isFolder);
+      share({ type: 'remove', id: f.id, isFolder: isFolder });
+      toast('"' + f.name + '" moved to Trash', () => {
+        google.script.run
+          .withSuccessHandler(() => {
+            if (parentKey) {
+              insertNew(f, isFolder, parentKey);
+              share({ type: 'add', f: f, isFolder: isFolder, key: parentKey });
+            }
+            toast('"' + f.name + '" restored');
+          })
+          .withFailureHandler(err => toast('Not restored: ' + err.message, null, true))
+          .trashItem(f.id, true);
+      });
+    })
+    .withFailureHandler(err => toast('Not deleted: ' + err.message, null, true))
+    .trashItem(f.id, false);
+}
+
+function startRename(li) {
+  if (!isEditable(li)) return;
+  const f = li._f, row = li.querySelector(':scope > .row'), nameEl = row.querySelector('.name');
+  if (!nameEl || row.querySelector('input.rename')) return;
+  const wasDraggable = row.draggable;
+  row.draggable = false;
+  const input = el('input', 'rename');
+  input.value = f.name;
+  nameEl.replaceWith(input);
+  input.focus();
+  const dot = f.name.lastIndexOf('.');
+  if (li.classList.contains('file') && dot > 0 && !/^application\/vnd\.google-apps\./.test(f.mime)) input.setSelectionRange(0, dot);
+  else input.select();
+  let done = false;
+  const finish = save => {
+    if (done) return;
+    done = true;
+    input.replaceWith(nameEl);
+    row.draggable = wasDraggable;
+    const name = input.value.trim();
+    if (!save || !name || name === f.name) return;
+    const old = f.name;
+    applyRename(f.id, name);
+    google.script.run
+      .withSuccessHandler(n => {
+        if (n !== name) applyRename(f.id, n);
+        share({ type: 'rename', id: f.id, name: n });
+        toast('Renamed to "' + n + '"');
+      })
+      .withFailureHandler(err => { applyRename(f.id, old); toast('Not renamed: ' + err.message, null, true); })
+      .renameItem(f.id, name);
+  };
+  input.addEventListener('keydown', ev => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter') finish(true);
+    if (ev.key === 'Escape') finish(false);
+  });
+  input.addEventListener('blur', () => finish(true));
+  input.addEventListener('click', ev => ev.stopPropagation());
+  input.addEventListener('dblclick', ev => ev.stopPropagation());
+}
+
+function applyRename(id, name) {
+  itemNodes(id).forEach(n => {
+    n._f.name = name;
+    n.dataset.name = name.toLowerCase();
+    const ne = n.querySelector(':scope > .row .name');
+    if (ne) {
+      ne.textContent = name;
+      starMark(n);
+      if (ne.tagName === 'A') ne.title = name + ' (click: preview · double-click: small window)';
+    }
+    const ul = n.parentElement;
+    if (ul) { n.remove(); insertSorted(ul, n, n.classList.contains('folder')); }
+    if (n.closest('#results')) {
+      n._f.lpath = null;
+      google.script.run.withSuccessHandler(p => { n._f.lpath = p[id] === undefined ? null : p[id]; }).getLocalPaths([id]);
+    }
+  });
+  Object.keys(cache).forEach(k => ['folders', 'files'].forEach(a => {
+    const c = cache[k] && cache[k][a];
+    if (c && c.some(x => x.id === id)) {
+      c.forEach(x => { if (x.id === id) x.name = name; });
+      c.sort((p, q) => collator.compare(p.name, q.name));
+    }
+  }));
+  if (current && current._f.id === id) document.getElementById('pv-title').textContent = name;
+}
+
+function handleShortcut(ev) {
+  const li = selLi && document.body.contains(selLi) ? selLi : null;
+  if (!li) return false;
+  const k = (ev.key || '').toLowerCase(), mod = ev.ctrlKey || ev.metaKey;
+  if (ev.key === 'F2') { ev.preventDefault(); startRename(li); return true; }
+  if (ev.key === 'Delete') { ev.preventDefault(); deleteItem(li); return true; }
+  if (mod && !ev.shiftKey && !ev.altKey && (k === 'x' || k === 'c' || k === 'v')) {
+    if (String(window.getSelection() || '')) return false; // text is selected: normal copy
+    ev.preventDefault();
+    if (k === 'v') paste(li);
+    else if (isEditable(li)) setClip(li, k === 'x' ? 'cut' : 'copy');
+    return true;
+  }
+  return false;
+}
+
+// ---- Folder colors ----
+const DEFAULT_GRAY = '#8f8f8f';   // Drive's "no color"
+const PALETTE = [
+  ['#ac725e', 'Chocolate'], ['#d06b64', 'Brick'], ['#f83a22', 'Red'], ['#fa573c', 'Strawberry'], ['#ff7537', 'Orange'], ['#ffad46', 'Yellow'],
+  ['#42d692', 'Spearmint'], ['#16a765', 'Green'], ['#7bd148', 'Asparagus'], ['#b3dc6c', 'Lime'], ['#fbe983', 'Sand'], ['#fad165', 'Macaroni'],
+  ['#92e1c0', 'Sea foam'], ['#9fe1e7', 'Pool'], ['#9fc6e7', 'Light blue'], ['#4986e7', 'Blue'], ['#9a9cff', 'Blue velvet'], ['#b99aff', 'Lilac'],
+  ['#c2c2c2', 'Grey'], ['#cabdbf', 'Mountain grey'], ['#cca6ac', 'Old rose'], ['#f691b2', 'Pink'], ['#cd74e6', 'Purple'], ['#a47ae2', 'Eggplant']
+];
+
+/** CSS filter that tints the yellow 📁 emoji to the given color ('' = no color). */
+function tintFilter(c) {
+  if (!/^#[0-9a-f]{6}$/i.test(c || '') || c.toLowerCase() === DEFAULT_GRAY) return '';
+  const r = parseInt(c.slice(1, 3), 16) / 255, g = parseInt(c.slice(3, 5), 16) / 255, b = parseInt(c.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
+  let h = 0, s = 0;
+  if (d) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  const BASE_H = 42, BASE_S = 0.9, BASE_L = 0.6; // approximate hue of the yellow 📁 emoji
+  const bright = Math.min(1.4, Math.max(0.6, l / BASE_L));
+  return 'hue-rotate(' + Math.round(h - BASE_H) + 'deg) saturate(' + (s / BASE_S).toFixed(2) + ') brightness(' + bright.toFixed(2) + ')';
+}
+
+function folderIcon(f) {
+  const span = el('span', 'ic', f.icon || f.emoji || '📁');
+  if (!f.icon && !f.emoji) {
+    const flt = tintFilter(f.color);
+    if (flt) span.style.filter = flt;
+  }
+  return span;
+}
+
+/** Refreshes the icon of the same folder everywhere it is shown (tree and search results). */
+function setColorEverywhere(id, color) {
+  document.querySelectorAll('#left li.folder').forEach(li => {
+    if (li.dataset.id !== id || !li._f || li._f.icon) return;
+    li._f.color = color;
+    const old = li.querySelector(':scope > .row > .ic');
+    if (old) old.replaceWith(folderIcon(li._f));
+  });
+}
+
+let palette = null;
+
+function closePalette() {
+  if (palette) { palette.remove(); palette = null; }
+}
+
+function openPalette(li, rect) {
+  closePalette();
+  const f = li._f;
+  palette = el('div', 'palette');
+  palette.append(el('div', 'pal-title', 'Color of folder "' + f.name + '"'));
+  const grid = el('div', 'pal-grid');
+  PALETTE.forEach(([c, n]) => {
+    const b = el('button', 'sw');
+    b.style.background = c;
+    b.title = n;
+    if ((f.color || '').toLowerCase() === c) b.classList.add('cur');
+    b.addEventListener('click', () => applyColor(li, c));
+    grid.append(b);
+  });
+  const none = el('button', 'pal-none', 'No color');
+  none.addEventListener('click', () => applyColor(li, DEFAULT_GRAY));
+  palette.append(grid, none);
+  palette.addEventListener('click', ev => ev.stopPropagation());
+  document.body.append(palette);
+  const pw = palette.offsetWidth, ph = palette.offsetHeight;
+  palette.style.left = Math.max(8, Math.min(rect.left, innerWidth - pw - 8)) + 'px';
+  palette.style.top = (rect.bottom + ph + 8 > innerHeight ? Math.max(8, rect.top - ph - 4) : rect.bottom + 4) + 'px';
+}
+
+function applyColor(li, color) {
+  closePalette();
+  const id = li.dataset.id, prev = li._f.color;
+  setColorEverywhere(id, color); // show immediately, then confirm with the server
+  google.script.run
+    .withSuccessHandler(c => { setColorEverywhere(id, c || color); share({ type: 'color', id: id, color: c || color }); })
+    .withFailureHandler(err => {
+      setColorEverywhere(id, prev);
+      const row = li.querySelector(':scope > .row');
+      const msg = el('span', 'meta', 'Color not changed: ' + err.message);
+      msg.style.color = 'var(--warn)';
+      row.insertBefore(msg, row.querySelector('.name').nextSibling);
+      setTimeout(() => msg.remove(), 6000);
+    })
+    .setFolderColor(id, color);
+}
+
+// ---- Stars ----
+/** Small ★ after the name of a starred item. */
+function starMark(li) {
+  const ne = li._f && li.querySelector(':scope > .row .name');
+  if (!ne) return;
+  let s = ne.querySelector('.star');
+  if (li._f.starred && !s) ne.append(el('span', 'star', ' ★'));
+  else if (!li._f.starred && s) s.remove();
+}
+
+function applyStar(f, isFolder, state, lpath) {
+  itemNodes(f.id).forEach(n => { n._f.starred = state; starMark(n); });
+  Object.keys(cache).forEach(k => ['folders', 'files'].forEach(a => {
+    (cache[k] && cache[k][a] || []).forEach(x => { if (x.id === f.id) x.starred = state; });
+  }));
+  const sec = document.querySelector('#tree li.section[data-id="__starred"]');
+  if (state) {
+    insertNew(Object.assign({}, f, { starred: true, lpath: lpath }), isFolder, '__starred');
+  } else {
+    const arr = isFolder ? 'folders' : 'files';
+    if (cache.__starred) cache.__starred[arr] = cache.__starred[arr].filter(x => x.id !== f.id);
+    if (sec) [...sec.querySelector(':scope > ul').children].forEach(c => {
+      if (c._f && c._f.id === f.id) { if (current && (c === current || c.contains(current))) closePreview(); c.remove(); }
+    });
+  }
+}
+
+function toggleStar(li) {
+  const f = li._f, on = !f.starred, isFolder = li.classList.contains('folder');
+  const lpath = localPath(li);
+  applyStar(f, isFolder, on, lpath); // show immediately, then confirm with the server
+  google.script.run
+    .withSuccessHandler(() => {
+      share({ type: 'star', f: f, isFolder: isFolder, on: on, lpath: lpath });
+      toast(on ? '⭐ "' + f.name + '" is starred' : '"' + f.name + '" is no longer starred');
+    })
+    .withFailureHandler(err => { applyStar(f, isFolder, !on, lpath); toast('Star not changed: ' + err.message, null, true); })
+    .setStarred(f.id, on);
+}
+
+// ---- Folder icons (emoji) ----
+const EMOJIS = ['📂','🗂️','🗃️','🗄️','📚','📖','📝','📄','📑','📃','📜','🧾','📊','📈','📉','🧮',
+  '💼','🏢','🏭','🏛️','⚖️','🔖','🏷️','📌','⭐','❤️','🔥','✅','❗','❓','⚠️','🚫',
+  '☣️','☢️','🧪','⚗️','🔬','🧫','💊','🛢️','🧯','🦺','♻️','🌱','🚚','🚛','🚆','✈️',
+  '🌍','💰','💶','💳','📅','⏰','📧','📞','👤','👥','🤝','🎓','🏠','🚗','🔧','⚙️',
+  '💡','🔒','📦','🎁','📷','🖼️','🎵','🎬','💻','📱','🧠','🎯'];
+
+function placePopup(p, rect) {
+  document.body.append(p);
+  const pw = p.offsetWidth, ph = p.offsetHeight;
+  p.style.left = Math.max(8, Math.min(rect.left, innerWidth - pw - 8)) + 'px';
+  p.style.top = (rect.bottom + ph + 8 > innerHeight ? Math.max(8, rect.top - ph - 4) : rect.bottom + 4) + 'px';
+}
+
+function setEmojiEverywhere(id, emoji) {
+  document.querySelectorAll('#left li.folder').forEach(li => {
+    if (li.dataset.id !== id || !li._f || li._f.icon) return;
+    li._f.emoji = emoji;
+    const old = li.querySelector(':scope > .row > .ic');
+    if (old) old.replaceWith(folderIcon(li._f));
+  });
+}
+
+function openEmojiPicker(li, rect) {
+  closePalette();
+  closeMenu();
+  const f = li._f;
+  palette = el('div', 'palette emo-pal');
+  palette.append(el('div', 'pal-title', 'Icon of folder "' + f.name + '"'));
+  const grid = el('div', 'pal-grid emo-grid');
+  EMOJIS.forEach(e => {
+    const b = el('button', 'emo', e);
+    if (f.emoji === e) b.classList.add('cur');
+    b.addEventListener('click', () => applyEmoji(li, e));
+    grid.append(b);
+  });
+  const own = el('input', 'emo-own');
+  own.placeholder = 'Or type your own emoji (Windows + .) and press Enter';
+  own.maxLength = 16;
+  own.addEventListener('keydown', ev => {
+    ev.stopPropagation();
+    if (ev.key === 'Enter' && own.value.trim()) applyEmoji(li, own.value.trim());
+    if (ev.key === 'Escape') closePalette();
+  });
+  const none = el('button', 'pal-none', 'Default (📁)');
+  none.addEventListener('click', () => applyEmoji(li, ''));
+  palette.append(grid, own, none);
+  palette.addEventListener('click', ev => ev.stopPropagation());
+  placePopup(palette, rect);
+}
+
+function applyEmoji(li, emoji) {
+  closePalette();
+  const id = li.dataset.id, prev = li._f.emoji || '';
+  setEmojiEverywhere(id, emoji); // show immediately, then confirm with the server
+  google.script.run
+    .withSuccessHandler(e => { setEmojiEverywhere(id, e); share({ type: 'emoji', id: id, emoji: e }); })
+    .withFailureHandler(err => {
+      setEmojiEverywhere(id, prev);
+      toast('Icon not saved: ' + err.message, null, true);
+    })
+    .setFolderEmoji(id, emoji);
+}
+
+// ---- New Google Doc ----
+let lastFolder = null; // last opened folder (for the "＋ Document" button)
+
+function canHoldDocs(id) {
+  return id !== '__shared' && id !== '__drives' && id !== '__starred';
+}
+
+/** Shows a name field in the given folder (li), or at the tree root if li is not given. */
+function startNewDoc(li) {
+  let ul, folderId;
+  if (li) {
+    if (!li.classList.contains('open')) toggle(li);
+    ul = li.querySelector(':scope > ul');
+    folderId = li.dataset.id;
+  } else {
+    ul = document.querySelector('#tree > ul');
+    folderId = ROOT || '__root';
+  }
+  const old = document.querySelector('li.newdoc');
+  if (old) old.remove();
+
+  const form = el('li', 'newdoc');
+  const row = el('div', 'row');
+  const input = el('input');
+  input.placeholder = 'New document name – Enter to create, Esc to cancel';
+  const status = el('span', 'meta', '');
+  row.append(el('span', 'tw', ''), el('span', 'ic', '📝'), input, status);
+  form.append(row);
+  ul.prepend(form);
+  input.focus();
+
+  input.addEventListener('keydown', ev => {
+    ev.stopPropagation();
+    if (ev.key === 'Escape') { form.remove(); return; }
+    if (ev.key !== 'Enter' || input.disabled) return;
+    const name = input.value.trim() || 'New document';
+    // Open the window right away (on the key press) so the browser does not block it; it gets its URL once the doc exists.
+    const win = openPopup({ url: 'about:blank' });
+    input.disabled = true;
+    status.textContent = 'Creating document…';
+    google.script.run
+      .withSuccessHandler(f => {
+        form.remove();
+        if (cache[folderId]) cache[folderId].files.push(f);
+        share({ type: 'add', f: f, isFolder: false, key: folderId });
+        const fileLi = makeFile(f);
+        const firstFile = ul.querySelector(':scope > li.file');
+        ul.insertBefore(fileLi, firstFile);
+        const note = ul.querySelector(':scope > li.note:not(.warn)');
+        if (note) note.remove(); // "(empty)"
+        if (win && !win.closed) win.location.href = f.url; else openPopup(f);
+        showPreview(fileLi);
+      })
+      .withFailureHandler(err => {
+        if (win && !win.closed) win.close();
+        input.disabled = false;
+        status.textContent = 'Error: ' + err.message;
+      })
+      .createDoc(name, folderId);
+  });
+}
+
+function applyFilter() {
+  const q = document.getElementById('filter').value.trim().toLowerCase();
+  const items = document.querySelectorAll('#tree li[data-name]');
+  if (!q) { items.forEach(li => li.classList.remove('hidden')); return; }
+  // Show an item if it or a loaded descendant matches; sections always stay visible
+  [...items].reverse().forEach(li => {
+    if (li.classList.contains('section')) return;
+    const self = li.dataset.name.includes(q);
+    const child = li.querySelector(':scope > ul > li[data-name]:not(.hidden)');
+    li.classList.toggle('hidden', !(self || child));
+  });
+}
+
+function init() {
+  closePreview();
+  if (!myRoot) gs('getRootId').then(r => { myRoot = r; }).catch(() => {});
+  const root = el('ul');
+  document.getElementById('tree').replaceChildren(root);
+  if (ROOT) {
+    load(root, ROOT);
+    google.script.run
+      .withSuccessHandler(name => { document.getElementById('title').textContent = '📁 ' + name; })
+      .getFolderName(ROOT);
+    google.script.run
+      .withSuccessHandler(paths => { rootPath = paths[ROOT] || null; })
+      .getLocalPaths([ROOT]);
+  } else {
+    SECTIONS.forEach(s => root.append(makeFolder(s, true)));
+    toggle(root.firstElementChild);           // My Drive opened right away
+    getData('__shared', () => {});            // preload the other sections
+    getData('__drives', () => {});
+    getData('__starred', () => {});
+  }
+}
+
+document.getElementById('filter').addEventListener('input', applyFilter);
+document.getElementById('collapse').addEventListener('click', () =>
+  document.querySelectorAll('#tree li.folder.open').forEach(li => li.classList.remove('open')));
+document.getElementById('reload').addEventListener('click', () => {
+  Object.keys(cache).forEach(k => delete cache[k]); // refresh = forget the cache
+  init();
+});
+document.getElementById('upfiles').addEventListener('change', onPicked);
+document.getElementById('updir').addEventListener('change', onPicked);
+document.getElementById('upload').addEventListener('click', () => {
+  const li = (lastFolder && document.body.contains(lastFolder)) ? lastFolder
+           : (ROOT ? null : document.querySelector('#tree > ul > li.section'));
+  pickUpload(li ? { key: li.dataset.id, name: li._f.name, li: li }
+                : { key: ROOT, name: document.getElementById('title').textContent.replace(/^📁 /, ''), li: null }, false);
+});
+// Files dropped outside a folder must not open in the browser
+document.addEventListener('dragover', ev => { if (isFileDrag(ev)) ev.preventDefault(); });
+document.addEventListener('drop', ev => {
+  if (!isFileDrag(ev)) return;
+  ev.preventDefault();
+  toast('Drop files directly onto a folder in the tree (the folder gets a blue outline).', null, true);
+});
+document.getElementById('newfolder').addEventListener('click', () => {
+  const target = (lastFolder && document.body.contains(lastFolder)) ? lastFolder
+               : (ROOT ? null : document.querySelector('#tree > ul > li.section')); // otherwise My Drive
+  startNewFolder(target);
+});
+document.getElementById('newdoc').addEventListener('click', () => {
+  const target = (lastFolder && document.body.contains(lastFolder)) ? lastFolder
+               : (ROOT ? null : document.querySelector('#tree > ul > li.section')); // otherwise My Drive
+  startNewDoc(target);
+});
+document.getElementById('pv-close').addEventListener('click', closePreview);
+document.addEventListener('click', () => { closePalette(); closeMenu(); });
+document.getElementById('left').addEventListener('scroll', () => { closePalette(); closeMenu(); });
+document.getElementById('pv-edit').addEventListener('click', () => { if (current) openPopup(current._f); });
+document.getElementById('pv-tab').addEventListener('click', () => { if (current) window.open(current._f.url, '_blank'); });
+
+// ---- Full-Drive search ----
+let searchSeq = 0;
+
+function runSearch() {
+  const text = document.getElementById('search').value.trim();
+  const box = document.getElementById('results');
+  if (!text) { clearSearch(); return; }
+  const seq = ++searchSeq;
+  const head = el('div');
+  head.id = 'results-head';
+  const label = el('span', null, '🔎 Searching "' + text + '"…');
+  const x = el('button', null, '✕ Close');
+  x.title = 'Close search results';
+  x.addEventListener('click', clearSearch);
+  head.append(label, x);
+  const ul = el('ul');
+  box.replaceChildren(head, ul);
+  box.classList.remove('hidden');
+  document.getElementById('left').scrollTop = 0;
+  try {
+  google.script.run
+    .withSuccessHandler(data => {
+      if (seq !== searchSeq) return; // a newer request has arrived
+      data.folders.forEach(f => { f.inSearch = true; });
+      data.files.forEach(f => { f.inSearch = true; });
+      const n = data.folders.length + data.files.length;
+      label.textContent = '🔎 "' + text + '" – ' + (n ? n + ' results' : 'no results');
+      render(ul, data);
+      const items = data.folders.concat(data.files);
+      if (items.length) {
+        google.script.run
+          .withSuccessHandler(paths => items.forEach(f => { f.lpath = paths[f.id] === undefined ? null : paths[f.id]; }))
+          .getLocalPaths(items.map(f => f.id));
+      }
+    })
+    .withFailureHandler(err => {
+      if (seq !== searchSeq) return;
+      ul.replaceChildren(el('li', 'note warn', 'Error: ' + err.message));
+    })
+    .searchDrive(text);
+  } catch (e) {
+    ul.replaceChildren(el('li', 'note warn', 'Error: ' + e.message));
+  }
+}
+
+function clearSearch() {
+  searchSeq++;
+  const box = document.getElementById('results');
+  if (current && box.contains(current)) closePreview();
+  box.replaceChildren();
+  box.classList.add('hidden');
+  document.getElementById('search').value = '';
+}
+
+document.getElementById('search').addEventListener('keydown', ev => {
+  if (ev.key === 'Enter') runSearch();
+  if (ev.key === 'Escape') clearSearch();
+});
+document.getElementById('search').addEventListener('search', () => {
+  if (!document.getElementById('search').value) clearSearch(); // click on ✕ in the field
+});
+
+// Keyboard: ↑/↓ browse files in the preview, Esc closes the preview
+document.addEventListener('keydown', ev => {
+  if (ev.target.tagName === 'INPUT') return;
+  if (ev.key === 'Escape') {
+    if (menu) closeMenu(); else if (palette) closePalette(); else closePreview();
+    return;
+  }
+  if (handleShortcut(ev)) return;
+  if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && current) {
+    const files = [...document.querySelectorAll('#left li.file')].filter(isShown);
+    const next = files[files.indexOf(current) + (ev.key === 'ArrowDown' ? 1 : -1)];
+    if (next) {
+      ev.preventDefault();
+      showPreview(next);
+      next.scrollIntoView({ block: 'nearest' });
+    }
+  }
+});
+
+init();
+</script>
+</body>
+</html>
