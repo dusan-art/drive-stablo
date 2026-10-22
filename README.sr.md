@@ -8,6 +8,16 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 > 🇬🇧 English: [README.md](README.md)
 > Interfejs aplikacije je na engleskom.
 
+![Stablo i pravljenje novog dokumenta](screenshots/1-tree-and-new-document.png)
+
+<details><summary>Još slika</summary>
+
+![Dva taba jedan pored drugog](screenshots/2-two-tabs-side-by-side.png)
+![Meni na desni klik](screenshots/3-right-click-menu.png)
+![Panel za pregled](screenshots/4-preview-panel.png)
+
+</details>
+
 ## Mogućnosti
 
 - **Stablo** za *Moj disk*, *Deljeno sa mnom*, *Deljene diskove* i *Sa zvezdicom*. Folderi se otvaraju odmah, jer se sledeći nivo učitava unapred.

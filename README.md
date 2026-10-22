@@ -7,6 +7,16 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 
 > 🇷🇸 Uputstvo na srpskom: [README.sr.md](README.sr.md)
 
+![Tree view with a new document being created](screenshots/1-tree-and-new-document.png)
+
+<details><summary>More screenshots</summary>
+
+![Two tabs side by side](screenshots/2-two-tabs-side-by-side.png)
+![Right-click menu](screenshots/3-right-click-menu.png)
+![Preview panel](screenshots/4-preview-panel.png)
+
+</details>
+
 ## Features
 
 - **Tree view** of *My Drive*, *Shared with me*, *Shared drives* and *Starred*. Folders open instantly because the next level is preloaded in the background.
