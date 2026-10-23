@@ -23,7 +23,10 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 - **Preview panel**: click a file to preview it (PDF, Office, images, Google Docs/Sheets/Slides), use ↑/↓ to browse, Esc to close. Double-click opens the file in a small editing window.
 - **Full-Drive search** by name and content, using Google's index.
 - **File operations**: new folder, new Google Doc, rename (F2), cut/copy/paste (Ctrl+X/C/V, including whole folders), delete to Trash with undo, drag & drop to move.
+- **Keyboard like Windows Explorer**: ↑/↓ move, →/← open/close folders, **Enter** = preview, **Enter Enter** = small window, **Space** = open in the desktop app, F2 rename, Delete, Ctrl+X/C/V.
 - **Upload** files or whole folders by button or by dragging them from your desktop. Files go straight from the browser to Drive with a progress indicator.
+- **Share menu (📤)** for files and folders: copy link, Windows share, **download** (Google files as .docx/.xlsx/.pptx, folders as .zip), **share with people** by email (view/comment/edit) and *who has access*.
+- **Convert**: right-click a Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx or PDF** next to the original; right-click a **Markdown (.md)** file → **Google Doc** or **.docx**.
 - **Folder colors** (synced with Google Drive), **custom folder icons** (any emoji), **stars**.
 - **Two tabs side by side** (e.g. Chrome split view): drag between them, copy/paste between them, and both stay in sync.
 - **Open in desktop app** (optional, Windows): with Google Drive for desktop installed, the 🖥️ button opens a `.docx`/`.xlsx`/`.pdf`… from the `G:` drive in Word, Excel and so on. Changes sync back automatically.
@@ -31,7 +34,8 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 ## How it works and what it can access
 
 - The app runs **in your own Google account**, as an Apps Script web app deployed as *Execute as: Me* with *Access: Only myself*. No server, no third party, no data leaves Google.
-- It uses the Drive API (advanced service) with your permission to list, move, copy, rename and trash files in your Drive.
+- It uses the Drive API (advanced service) with your permission to list, move, copy, rename, share and trash files in your Drive.
+- *Connect to an external service* is used only to call Google's own Drive export API (for Save as .docx/PDF, Markdown conversion and downloads).
 - **Uploads** use a short-lived OAuth token of your account, which the page receives only after the server checks that the person opening the page is the script owner.
 - **Delete** moves items to the Drive Trash. Nothing is permanently deleted.
 
@@ -43,7 +47,8 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 2. On the left, click **Overview** (ⓘ), then **Make a copy** (📄 icon, top right). You now have your own private copy; rename it to *Drive stablo* if you like.
 3. **Deploy → New deployment →** ⚙️ **Web app**, with *Execute as*: **Me** and *Who has access*: **Only myself**.
 4. Click **Deploy** → **Authorize access**. You will see *"Google hasn't verified this app"*. That is expected for a script you own: click **Advanced → Go to Drive stablo (unsafe) → Allow**.
-5. Open the **Web app URL**. Optionally, in Chrome use ⋮ → *Cast, save and share* → **Install page as app** to get a taskbar icon.
+5. In the editor, select the function **`authorize`** next to ▷ Run and click **Run** once. Approve the permissions if Google asks. The log should say *"All permissions OK"*.
+6. Open the **Web app URL**. Optionally, in Chrome use ⋮ → *Cast, save and share* → **Install page as app** to get a taskbar icon.
 
 Your copy runs only in your account. The template's owner cannot see your copy or your Drive.
 
@@ -53,7 +58,7 @@ Your copy runs only in your account. The template's owner cannot see your copy o
 2. Replace the content of `Code.gs` with [`src/Code.gs`](src/Code.gs).
 3. Click **+** next to *Files* → **HTML**, name it **`Index`** (without `.html`), and paste [`src/Index.html`](src/Index.html).
 4. Click **+** next to *Services* → **Drive API** → **Add**. Keep Identifier `Drive`, version `v3`.
-5. Continue with steps 3–5 of Option A.
+5. Continue with steps 3–6 of Option A.
 
 ### Option B: with clasp (for developers)
 
@@ -69,7 +74,7 @@ The manifest [`src/appsscript.json`](src/appsscript.json) already enables the Dr
 
 ### Updating to a new version
 
-Replace the files (or run `clasp push`), then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL stays the same.
+Replace the files (or run `clasp push`), run **`authorize`** once in the editor (new features may need a new permission), then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL stays the same.
 
 ## Optional: "open in desktop app" helper (Windows)
 

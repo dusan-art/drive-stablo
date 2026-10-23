@@ -24,7 +24,10 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 - **Panel za pregled**: klik na fajl otvara pregled (PDF, Office, slike, Google Docs/Sheets/Slides), ↑/↓ prelistava, Esc zatvara. Dupli klik otvara fajl u malom prozoru za uređivanje.
 - **Pretraga celog Drivea** po nazivu i sadržaju.
 - **Radnje sa fajlovima**: novi folder, novi Google dokument, preimenovanje (F2), iseci/kopiraj/nalepi (Ctrl+X/C/V, i za cele foldere), brisanje u otpad sa „Poništi", premeštanje prevlačenjem.
+- **Tastatura kao u Windows Exploreru**: ↑/↓ kretanje, →/← otvara/zatvara folder, **Enter** = pregled, **Enter Enter** = mali prozor, **Space** = otvaranje u aplikaciji na računaru, F2, Delete, Ctrl+X/C/V.
 - **Otpremanje** fajlova i celih foldera, dugmetom ili prevlačenjem sa računara, uz prikaz napretka.
+- **Meni za deljenje (📤)** za fajlove i foldere: kopiranje linka, Windows deljenje, **preuzimanje** (Google fajlovi kao .docx/.xlsx/.pptx, folderi kao .zip), **deljenje sa osobama** preko emaila (pregled/komentar/izmena) i *ko ima pristup*.
+- **Pretvaranje**: desni klik na Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx ili PDF** pored originala; desni klik na **Markdown (.md)** fajl → **Google Doc** ili **.docx**.
 - **Boje foldera** (iste kao u Google Driveu), **ikonice foldera** (bilo koji emodži), **zvezdice**.
 - **Dva taba jedan pored drugog**: prevlačenje i kopiranje između njih, a oba se sama usklađuju.
 - **Otvaranje u aplikaciji na računaru** (opciono, Windows): uz Google Drive for desktop, dugme 🖥️ otvara `.docx`/`.xlsx`/`.pdf`… sa diska G: u Wordu, Excelu… Izmene se same vraćaju na Drive.
@@ -37,7 +40,8 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 2. Levo klikni **Overview** (ⓘ), pa gore desno **Make a copy** (ikonica 📄). Sada imaš svoju privatnu kopiju.
 3. **Deploy → New deployment →** ⚙️ **Web app**, uz podešavanja *Execute as*: **Me** i *Who has access*: **Only myself**.
 4. **Deploy** → **Authorize access**. Na poruci *„Google hasn't verified this app"* klikni **Advanced → Go to Drive stablo (unsafe) → Allow**. To je normalno za skriptu koja je tvoja.
-5. Otvori **Web app URL**. U Chromeu ⋮ → *Cast, save and share* → **Install page as app** daje ikonicu na taskbaru.
+5. U editoru izaberi funkciju **`authorize`** pored ▷ Run i jednom klikni **Run**. Odobri dozvole ako ih Google traži. U logu treba da piše *„All permissions OK"*.
+6. Otvori **Web app URL**. U Chromeu ⋮ → *Cast, save and share* → **Install page as app** daje ikonicu na taskbaru.
 
 Tvoja kopija radi samo u tvom nalogu. Vlasnik šablona ne vidi ni kopiju ni tvoj Drive.
 
@@ -47,9 +51,9 @@ Tvoja kopija radi samo u tvom nalogu. Vlasnik šablona ne vidi ni kopiju ni tvoj
 2. Sadržaj `Code.gs` zameni fajlom [`src/Code.gs`](src/Code.gs).
 3. Klikni **+** pored *Files* → **HTML**, nazovi ga **`Index`** (bez `.html`) i nalepi [`src/Index.html`](src/Index.html).
 4. Klikni **+** pored *Services* → **Drive API** → **Add**.
-5. Nastavi od koraka 3 iznad.
+5. Nastavi od koraka 3 iznad (do koraka 6).
 
-**Nova verzija:** zameni fajlove → **Deploy → Manage deployments → ✏️ → New version → Deploy**. Link ostaje isti.
+**Nova verzija:** zameni fajlove → jednom pokreni **`authorize`** u editoru (nove mogućnosti mogu tražiti novu dozvolu) → **Deploy → Manage deployments → ✏️ → New version → Deploy**. Link ostaje isti.
 
 ## Pomoćnik za otvaranje u Wordu (opciono, Windows)
 
