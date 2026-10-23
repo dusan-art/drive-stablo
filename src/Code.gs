@@ -251,6 +251,172 @@ function copyItem(id, toKey) {
   return { item: bucket.folders[0] || bucket.files[0], isFolder: isFolder, count: ctx.n };
 }
 
+/**
+ * Saves a Google Doc / Sheet / Slides file as .docx / .xlsx / .pptx (or as PDF) next to the original.
+ * The original stays untouched. fmt: 'office' or 'pdf'.
+ */
+function exportAs(id, fmt) {
+  const OFFICE = {
+    'application/vnd.google-apps.document':     ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+    'application/vnd.google-apps.spreadsheet':  ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'],
+    'application/vnd.google-apps.presentation': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx']
+  };
+  const src = Drive.Files.get(id, { fields: 'id,name,mimeType,parents', supportsAllDrives: true });
+  const target = fmt === 'pdf' ? ['application/pdf', 'pdf'] : OFFICE[src.mimeType];
+  if (!target || src.mimeType.indexOf('application/vnd.google-apps.') !== 0) {
+    throw new Error('Only Google Docs, Sheets and Slides can be saved this way.');
+  }
+  const name = src.name.replace(/\.(docx|xlsx|pptx|pdf)$/i, '') + '.' + target[1];
+  const parent = (src.parents && src.parents[0]) || 'root';
+  const blob = exportBlob_(id, target[0]).setName(name).setContentType(target[0]);
+  const nf = Drive.Files.create({ name: name, parents: [parent], mimeType: target[0] }, blob,
+                                { supportsAllDrives: true, fields: 'id' });
+  const f = Drive.Files.get(nf.id, { fields: ITEM_FIELDS, supportsAllDrives: true });
+  const bucket = { folders: [], files: [] };
+  classify_(f, bucket, false);
+  const root = myRootId_();
+  return { item: bucket.files[0], key: (parent === 'root' || parent === root) ? '__root' : parent };
+}
+
+/** Downloads a Google file converted to the given MIME type (Drive export, max 10 MB). */
+function exportBlob_(id, mime) {
+  const url = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+              '/export?mimeType=' + encodeURIComponent(mime);
+  const resp = UrlFetchApp.fetch(url, {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) {
+    if (/exportSizeLimitExceeded/.test(resp.getContentText())) {
+      throw new Error('The file is too large to convert (Google limit: 10 MB).');
+    }
+    throw new Error('Google could not convert the file (' + resp.getResponseCode() + ').');
+  }
+  return resp.getBlob();
+}
+
+/**
+ * Converts a Markdown (.md) file to a Google Doc ('gdoc') or a Word file ('docx') next to the original.
+ * Google Docs imports Markdown natively (headings, bold, lists, links, tables).
+ * For .docx a temporary Google Doc is created, exported and moved to Trash.
+ */
+function convertMarkdown(id, target) {
+  const src = Drive.Files.get(id, { fields: 'id,name,mimeType,parents', supportsAllDrives: true });
+  if (!/\.(md|markdown)$/i.test(src.name) && src.mimeType !== 'text/markdown') {
+    throw new Error('Only Markdown (.md) files can be converted this way.');
+  }
+  const resp = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                                 '?alt=media&supportsAllDrives=true', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) throw new Error('Could not read the file (' + resp.getResponseCode() + ').');
+  const base = src.name.replace(/\.(md|markdown)$/i, '');
+  const parent = (src.parents && src.parents[0]) || 'root';
+  const md = resp.getBlob().setContentType('text/markdown').setName(base);
+  const DOC = 'application/vnd.google-apps.document';
+  const doc = Drive.Files.create({ name: base, parents: [parent], mimeType: DOC }, md,
+                                 { supportsAllDrives: true, fields: 'id' });
+  let newId = doc.id;
+  if (target === 'docx') {
+    const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const blob = exportBlob_(doc.id, DOCX).setName(base + '.docx').setContentType(DOCX);
+    newId = Drive.Files.create({ name: base + '.docx', parents: [parent], mimeType: DOCX }, blob,
+                               { supportsAllDrives: true, fields: 'id' }).id;
+    Drive.Files.update({ trashed: true }, doc.id, null, { supportsAllDrives: true, fields: 'id' });
+  }
+  const f = Drive.Files.get(newId, { fields: ITEM_FIELDS, supportsAllDrives: true });
+  const bucket = { folders: [], files: [] };
+  classify_(f, bucket, false);
+  const root = myRootId_();
+  return { item: bucket.files[0], key: (parent === 'root' || parent === root) ? '__root' : parent };
+}
+
+/**
+ * Run this once from the editor (select "authorize" → Run) after installing or updating,
+ * so Google asks for all permissions the app needs. It only reads your account name.
+ */
+function authorize() {
+  const r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }
+  });
+  Drive.Files.list({ pageSize: 1, fields: 'files(id)' });
+  Logger.log('All permissions OK for ' + JSON.parse(r.getContentText()).user.emailAddress + ' (' + Session.getEffectiveUser().getEmail() + ')');
+}
+
+/** Email address of the signed-in owner (for opening Gmail and downloads in the right account). */
+function getMyEmail() {
+  return Session.getEffectiveUser().getEmail();
+}
+
+/** The file's content: Google Docs/Sheets/Slides as .docx/.xlsx/.pptx, other Google files as PDF, others as they are. */
+function fileBlob_(id) {
+  const OFFICE = {
+    'application/vnd.google-apps.document':     ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'docx'],
+    'application/vnd.google-apps.spreadsheet':  ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'],
+    'application/vnd.google-apps.presentation': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx']
+  };
+  const src = Drive.Files.get(id, { fields: 'id,name,mimeType', supportsAllDrives: true });
+  if (src.mimeType === FOLDER) return zipFolder_(id, 40 * 1024 * 1024);
+  if (src.mimeType === SHORTCUT) throw new Error('Shortcuts cannot be sent as attachments.');
+  if (src.mimeType.indexOf('application/vnd.google-apps.') === 0) {
+    const t = OFFICE[src.mimeType] || ['application/pdf', 'pdf'];
+    return exportBlob_(id, t[0]).setName(src.name + '.' + t[1]).setContentType(t[0]);
+  }
+  const resp = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                                 '?alt=media&supportsAllDrives=true', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  if (resp.getResponseCode() !== 200) throw new Error('Could not read the file (' + resp.getResponseCode() + ').');
+  return resp.getBlob().setName(src.name);
+}
+
+/** Packs a folder (with subfolders) into one .zip; Google files go in as .docx/.xlsx/.pptx (or PDF). */
+function zipFolder_(id, maxBytes) {
+  const src = Drive.Files.get(id, { fields: 'id,name', supportsAllDrives: true });
+  const out = [], ctx = { deadline: Date.now() + 4 * 60 * 1000, size: 0, max: maxBytes, skipped: 0 };
+  collectFiles_(id, '', out, ctx);
+  if (!out.length) throw new Error('The folder is empty.');
+  return Utilities.zip(out, src.name + '.zip');
+}
+
+function collectFiles_(folderId, prefix, out, ctx) {
+  let token;
+  do {
+    const r = Drive.Files.list({
+      q: "'" + folderId + "' in parents and trashed = false", pageSize: 1000, pageToken: token,
+      fields: 'nextPageToken,files(id,name,mimeType)', supportsAllDrives: true, includeItemsFromAllDrives: true
+    });
+    (r.files || []).forEach(f => {
+      if (Date.now() > ctx.deadline) throw new Error('The folder is too big to pack in time – download it from Google Drive instead.');
+      if (f.mimeType === FOLDER) { collectFiles_(f.id, prefix + f.name + '/', out, ctx); return; }
+      if (f.mimeType === SHORTCUT) return;
+      let b;
+      try { b = fileBlob_(f.id); } catch (e) { ctx.skipped++; return; }
+      ctx.size += b.getBytes().length;
+      if (ctx.size > ctx.max) {
+        throw new Error('The folder is larger than ' + Math.round(ctx.max / 1048576) + ' MB – download it from Google Drive instead.');
+      }
+      out.push(b.setName(prefix + b.getName()));
+    });
+    token = r.nextPageToken;
+  } while (token);
+}
+
+/** A folder as a .zip for downloading in the browser (up to about 40 MB). */
+function downloadFolder(id) {
+  const z = zipFolder_(id, 40 * 1024 * 1024);
+  return { name: z.getName(), data: Utilities.base64Encode(z.getBytes()) };
+}
+
+/** Gives people access to a file or folder by email (role: reader, commenter or writer). */
+function shareWith(id, emails, role, notify) {
+  if (['reader', 'commenter', 'writer'].indexOf(role) < 0) throw new Error('Unknown role.');
+  const list = (emails || []).map(e => String(e).trim()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  if (!list.length) throw new Error('Please enter a valid email address.');
+  list.forEach(e => Drive.Permissions.create({ type: 'user', role: role, emailAddress: e }, id,
+    { sendNotificationEmail: !!notify, supportsAllDrives: true, fields: 'id' }));
+  return list.length;
+}
+
 function isInside_(folderId, ancestorId, root) {
   let id = folderId;
   for (let i = 0; i < 60 && id && id !== root; i++) {

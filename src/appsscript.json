@@ -2,7 +2,11 @@
   "timeZone": "Europe/Belgrade",
   "dependencies": {
     "enabledAdvancedServices": [
-      { "userSymbol": "Drive", "serviceId": "drive", "version": "v3" }
+      {
+        "userSymbol": "Drive",
+        "serviceId": "drive",
+        "version": "v3"
+      }
     ]
   },
   "webapp": {
@@ -10,5 +14,10 @@
     "access": "MYSELF"
   },
   "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.external_request",
+    "https://www.googleapis.com/auth/userinfo.email"
+  ]
 }

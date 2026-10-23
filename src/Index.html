@@ -57,7 +57,11 @@
   #toast.show { opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
   #toast.warn { background:var(--warn); color:#000; }
   #toast button { background:none; border:0; padding:0; color:inherit; font-weight:600; text-decoration:underline; }
-  li.picked > .row { box-shadow:inset 3px 0 0 var(--accent); }
+  li.picked > .row { box-shadow:inset 3px 0 0 var(--accent); background:rgba(26,115,232,.08); }
+  body.kbd-away li.picked > .row { box-shadow:inset 3px 0 0 #9aa0a6; background:rgba(0,0,0,.06); }
+  #kbd-hint { display:none; position:fixed; left:12px; bottom:12px; z-index:50; padding:6px 10px; border-radius:6px;
+              background:#3c4043; color:#fff; font-size:12px; cursor:pointer; }
+  body.kbd-away #kbd-hint { display:block; }
   li.cutting > .row { opacity:.5; }
   .ctxmenu { position:fixed; z-index:25; background:var(--bg); border:1px solid var(--line); border-radius:8px;
              box-shadow:0 6px 24px rgba(0,0,0,.18); padding:4px; min-width:210px; }
@@ -124,6 +128,7 @@
   <button id="reload" title="Reload">Refresh</button>
 </header>
 <div id="main">
+  <div id="kbd-hint">⌨️ Keyboard is in another window or the preview – click here to use it in the tree</div>
   <div id="left">
     <div id="results" class="hidden"></div>
     <div id="tree"></div>
@@ -136,7 +141,7 @@
       <button id="pv-close" title="Close preview (Esc)">✕</button>
     </div>
     <iframe id="pv-frame" src="about:blank" allow="autoplay; fullscreen"></iframe>
-    <div id="pv-hint">↑ / ↓ previous / next file · Esc closes the preview · double-click a file to open it in a small window</div>
+    <div id="pv-hint">↑ / ↓ move · → / ← open / close folder · Enter preview · Enter Enter small window · Space desktop app · Esc closes the preview</div>
   </div>
 </div>
 
@@ -263,6 +268,16 @@ function makeFolder(f, section) {
     plus.addEventListener('click', ev => { ev.stopPropagation(); startNewDoc(li); });
     row.append(plus);
   }
+  if (!f.icon) {
+    const sh = el('button', 'act', '📤');
+    sh.title = 'Share (copy link, download as .zip, share with people…)';
+    sh.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const r = sh.getBoundingClientRect();
+      select(li); openShare(li, r.left, r.bottom + 4);
+    });
+    row.append(sh);
+  }
   row.append(go);
   row.addEventListener('click', () => { select(li); toggle(li); });
   row.addEventListener('contextmenu', ev => { ev.preventDefault(); select(li); openMenu(li, ev.clientX, ev.clientY); });
@@ -287,14 +302,21 @@ function makeFile(f) {
     ev.preventDefault();
     showPreview(li);
   });
-  a.addEventListener('dblclick', ev => { ev.preventDefault(); openPopup(f); });
+  a.addEventListener('dblclick', ev => { ev.preventDefault(); select(li); openPopup(f); });
 
   const edit = el('button', 'act', '✏️');
   edit.title = 'Open in a small window';
-  edit.addEventListener('click', () => openPopup(f));
+  edit.addEventListener('click', () => { select(li); openPopup(f); });
   const go = el('a', 'go', '↗');
   go.href = f.url;
   go.title = 'Open in a new tab';
+  const sh = el('button', 'act', '📤');
+  sh.title = 'Share (copy link, download, share with people…)';
+  sh.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const r = sh.getBoundingClientRect();
+    select(li); openShare(li, r.left, r.bottom + 4);
+  });
 
   const meta = [f.owner, fmtSize(f.size), fmtDate(f.updated)].filter(Boolean).join(' · ');
   row.append(el('span', 'tw', ''), el('span', 'ic', icon(f.mime, f.name)), a, el('span', 'meta', meta), edit);
@@ -310,7 +332,7 @@ function makeFile(f) {
     up.title = 'Open the folder that contains this file';
     row.append(up);
   }
-  row.append(go);
+  row.append(sh, go);
   li.append(row);
   makeDraggable(li, row);
   row.addEventListener('contextmenu', ev => { ev.preventDefault(); select(li); openMenu(li, ev.clientX, ev.clientY); });
@@ -915,10 +937,22 @@ function openMenu(li, x, y) {
   item('✏️', 'Rename', 'F2', () => startRename(li), ed);
   item(li._f && li._f.starred ? '☆' : '⭐', li._f && li._f.starred ? 'Remove star' : 'Add star', '',
        () => toggleStar(li), ed);
+  item('📤', 'Share…', '', () => openShare(li, x, y), !!(li._f && li._f.url && !li._f.icon));
   item('✂️', 'Cut', 'Ctrl+X', () => setClip(li, 'cut'), ed);
   item('📄', 'Copy', 'Ctrl+C', () => setClip(li, 'copy'), ed);
   item('📋', clip && tgt ? 'Paste "' + clip.f.name + '" in "' + tgt.name + '"' : 'Paste', 'Ctrl+V',
        () => paste(li), !!(clip && tgt && pasteAllowed(tgt)));
+  const office = !isFolder && ed && OFFICE_EXT[li._f.mime];
+  if (office) {
+    menu.append(el('hr'));
+    item('💾', 'Save as .' + office + ' (next to original)', '', () => exportFile(li, 'office', office), true);
+    item('📕', 'Save as PDF (next to original)', '', () => exportFile(li, 'pdf', 'pdf'), true);
+  }
+  if (!isFolder && ed && isMarkdown(li._f)) {
+    menu.append(el('hr'));
+    item('📝', 'Convert to Google Doc (next to original)', '', () => convertMd(li, 'gdoc'), true);
+    item('💾', 'Convert to .docx (next to original)', '', () => convertMd(li, 'docx'), true);
+  }
   if (isFolder && ed) {
     menu.append(el('hr'));
     item('🎨', 'Folder color…', '', () => openPalette(li, { left: x, top: y, bottom: y }), true);
@@ -932,6 +966,206 @@ function openMenu(li, x, y) {
   const mw = menu.offsetWidth, mh = menu.offsetHeight;
   menu.style.left = Math.max(8, Math.min(x, innerWidth - mw - 8)) + 'px';
   menu.style.top = Math.max(8, Math.min(y, innerHeight - mh - 8)) + 'px';
+}
+
+/** Google file types that can be saved as Microsoft Office files. */
+const OFFICE_EXT = {
+  'application/vnd.google-apps.document': 'docx',
+  'application/vnd.google-apps.spreadsheet': 'xlsx',
+  'application/vnd.google-apps.presentation': 'pptx'
+};
+
+/** Saves a Google Doc/Sheet/Slides file as an Office file or PDF in the same folder. */
+function exportFile(li, fmt, ext) {
+  const f = li._f, known = parentKeyOf(li);
+  toast('💾 Saving "' + f.name + '" as .' + ext + '…');
+  google.script.run
+    .withSuccessHandler(r => {
+      const key = known || r.key;
+      insertNew(r.item, false, key);
+      share({ type: 'add', f: r.item, isFolder: false, key: key });
+      toast('✅ Saved "' + r.item.name + '" next to the original');
+    })
+    .withFailureHandler(err => toast('Not saved: ' + err.message, null, true))
+    .exportAs(f.id, fmt);
+}
+
+/** Markdown file (.md)? */
+function isMarkdown(f) {
+  return !!f && (/\.(md|markdown)$/i.test(f.name) || f.mime === 'text/markdown');
+}
+
+/** Converts a Markdown file to a Google Doc or .docx in the same folder. */
+function convertMd(li, target) {
+  const f = li._f, known = parentKeyOf(li);
+  toast('📝 Converting "' + f.name + '" to ' + (target === 'docx' ? '.docx' : 'a Google Doc') + '…');
+  google.script.run
+    .withSuccessHandler(r => {
+      const key = known || r.key;
+      insertNew(r.item, false, key);
+      share({ type: 'add', f: r.item, isFolder: false, key: key });
+      toast('✅ Created "' + r.item.name + '" next to the original');
+    })
+    .withFailureHandler(err => toast('Not converted: ' + err.message, null, true))
+    .convertMarkdown(f.id, target);
+}
+
+// ---- Share: copy a link, download, share with people ----
+let myEmail = '';
+google.script.run.withSuccessHandler(e => { myEmail = e || ''; }).getMyEmail();
+
+const EXPORT_SEG = {
+  'application/vnd.google-apps.document': 'document',
+  'application/vnd.google-apps.spreadsheet': 'spreadsheets',
+  'application/vnd.google-apps.presentation': 'presentation'
+};
+
+/** Files that can be sent: normal files and Google Docs/Sheets/Slides (sent as .docx/.xlsx/.pptx). */
+function canSendFile(f) {
+  return !!f && !f.icon && (!/^application\/vnd\.google-apps\./.test(f.mime) || !!EXPORT_SEG[f.mime]);
+}
+
+/** Direct download link (Google files are converted to Office format). */
+function downloadUrl(f) {
+  const au = myEmail ? '&authuser=' + encodeURIComponent(myEmail) : '';
+  const seg = EXPORT_SEG[f.mime];
+  if (seg) return 'https://docs.google.com/' + seg + '/d/' + f.id + '/export?format=' + OFFICE_EXT[f.mime] + au;
+  return 'https://drive.google.com/uc?export=download&id=' + f.id + au;
+}
+
+/** Downloads a whole folder as one .zip file. */
+function downloadFolderZip(f) {
+  toast('📦 Packing "' + f.name + '" as .zip… (may take a while)');
+  google.script.run
+    .withSuccessHandler(r => {
+      const bin = atob(r.data), u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([u], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = r.name;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      toast('✅ Downloaded "' + r.name + '"');
+    })
+    .withFailureHandler(err => toast('Not downloaded: ' + err.message, null, true))
+    .downloadFolder(f.id);
+}
+
+/** Downloads the file to the computer (Google files as .docx/.xlsx/.pptx). */
+function downloadFile(f) {
+  window.open(downloadUrl(f), '_blank');
+  toast('⬇️ Downloading "' + f.name + '"…');
+}
+
+
+function copyText(text) {
+  const done = () => toast('🔗 Link copied – paste it anywhere (Ctrl+V)');
+  const fallback = () => {
+    const t = el('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+    document.body.append(t); t.select();
+    try { document.execCommand('copy'); done(); } catch (e) { toast('Could not copy: ' + text, null, true); }
+    t.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback);
+  else fallback();
+}
+
+function openExternal(url, newTab) {
+  if (newTab) { window.open(url, '_blank', 'noopener'); return; }
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_top'; // app links (viber:) must be launched by the top window
+  document.body.append(a); a.click(); a.remove();
+}
+
+function openShare(li, x, y) {
+  closeMenu();
+  closePalette();
+  const f = li._f, isFolder = li.classList.contains('folder');
+  const url = f.url, text = f.name + ' – ' + url, enc = encodeURIComponent;
+  menu = el('div', 'ctxmenu');
+  const item = (ico, label, fn) => {
+    const b = el('button');
+    b.append(el('span', null, ico), el('span', 'lbl', label), el('span', 'key', ''));
+    b.addEventListener('click', ev => { ev.stopPropagation(); closeMenu(); fn(); });
+    menu.append(b);
+  };
+  const head = el('div', 'lbl', 'Share "' + f.name + '"');
+  head.style.cssText = 'padding:6px 10px;color:var(--muted);font-size:12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  menu.append(head);
+  item('🔗', 'Copy link', () => copyText(url));
+  if (navigator.share) {
+    item('🪟', 'Share link (Windows share)…', () => {
+      navigator.share({ title: f.name, text: f.name, url: url })
+        .catch(e => { if (e.name !== 'AbortError') toast('Windows share is not available here – use Copy link', null, true); });
+    });
+  }
+  if (isFolder ? !f.icon : canSendFile(f)) {
+    const sub = el('div', null, 'The file itself:');
+    sub.style.cssText = 'padding:6px 10px 2px;color:var(--muted);font-size:11px';
+    menu.append(el('hr'), sub);
+    item('⬇️', 'Download' + (isFolder ? ' as .zip' : EXPORT_SEG[f.mime] ? ' (as .' + OFFICE_EXT[f.mime] + ')' : ''),
+         () => isFolder ? downloadFolderZip(f) : downloadFile(f));
+    menu.append(el('hr'));
+  }
+  item('👤', 'Share with people (email)…', () => openSharePeople(li, x, y));
+  menu.append(el('hr'));
+  item('👥', 'Who has access… (opens Google Drive)', () => openExternal(
+    isFolder ? 'https://drive.google.com/drive/folders/' + f.id : 'https://drive.google.com/file/d/' + f.id + '/view', true));
+  const note = el('div', null, 'People need access to the file to open the link.');
+  note.style.cssText = 'padding:4px 10px 6px;color:var(--muted);font-size:11px;max-width:300px';
+  menu.append(note);
+  menu.addEventListener('click', ev => ev.stopPropagation());
+  menu.addEventListener('contextmenu', ev => ev.preventDefault());
+  document.body.append(menu);
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - mw - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, innerHeight - mh - 8)) + 'px';
+}
+
+/** Small form: give someone access to the file/folder by email (like Share in Google Drive). */
+function openSharePeople(li, x, y) {
+  closeMenu();
+  const f = li._f;
+  menu = el('div', 'ctxmenu');
+  menu.style.padding = '10px';
+  const title = el('div', null, 'Share "' + f.name + '" with:');
+  title.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:6px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+  const email = el('input');
+  email.type = 'email'; email.placeholder = 'name@example.com (several: comma)';
+  email.style.cssText = 'width:280px;padding:6px;border:1px solid var(--line);border-radius:6px;display:block;margin-bottom:6px';
+  const role = el('select');
+  [['reader', 'Can view'], ['commenter', 'Can comment'], ['writer', 'Can edit']].forEach(o => {
+    const op = el('option', null, o[1]); op.value = o[0]; role.append(op);
+  });
+  role.style.cssText = 'padding:5px;border:1px solid var(--line);border-radius:6px';
+  const notifyL = el('label', null, ' Notify by email');
+  const notify = el('input'); notify.type = 'checkbox'; notify.checked = true;
+  notifyL.prepend(notify);
+  notifyL.style.cssText = 'font-size:12px;margin-left:8px';
+  const go = el('button', null, 'Share');
+  go.style.cssText = 'display:inline-block;width:auto;margin-left:8px;padding:5px 12px;background:var(--accent);color:#fff;border-radius:6px';
+  const send = () => {
+    const list = email.value.split(/[,;\s]+/).filter(Boolean);
+    if (!list.length) { email.focus(); return; }
+    closeMenu();
+    toast('👤 Sharing "' + f.name + '"…');
+    google.script.run
+      .withSuccessHandler(n => toast('✅ "' + f.name + '" shared with ' + list.join(', ')))
+      .withFailureHandler(err => toast('Not shared: ' + err.message, null, true))
+      .shareWith(f.id, list, role.value, notify.checked);
+  };
+  go.addEventListener('click', ev => { ev.stopPropagation(); send(); });
+  email.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') send(); if (ev.key === 'Escape') closeMenu(); });
+  const line = el('div'); line.style.cssText = 'display:flex;align-items:center';
+  line.append(role, notifyL, go);
+  menu.append(title, email, line);
+  menu.addEventListener('click', ev => ev.stopPropagation());
+  document.body.append(menu);
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  menu.style.left = Math.max(8, Math.min(x, innerWidth - mw - 8)) + 'px';
+  menu.style.top = Math.max(8, Math.min(y, innerHeight - mh - 8)) + 'px';
+  email.focus();
 }
 
 function setClip(li, mode) {
@@ -1497,24 +1731,85 @@ document.getElementById('search').addEventListener('search', () => {
   if (!document.getElementById('search').value) clearSearch(); // click on ✕ in the field
 });
 
-// Keyboard: ↑/↓ browse files in the preview, Esc closes the preview
+// Keyboard (like Windows Explorer):
+//   ↑/↓ move through visible folders and files (the preview follows when it is open)
+//   → opens a folder (or goes to its first item), ← closes it (or goes to the parent folder)
+//   Enter: folder = open/close, file = preview; Enter twice quickly = small window
+//   Space: file = open in the desktop app (Word, Excel…; Google files open in the small window)
+//   Esc closes menus and the preview
+function visibleRows() {
+  return [...document.querySelectorAll('#left li.folder, #left li.file')].filter(isShown);
+}
+
+function moveTo(li) {
+  if (!li) return;
+  if (li.classList.contains('file') && current) showPreview(li); else select(li);
+  li.querySelector(':scope > .row').scrollIntoView({ block: 'nearest' });
+}
+
+let lastEnter = { li: null, t: 0 };
+
 document.addEventListener('keydown', ev => {
-  if (ev.target.tagName === 'INPUT') return;
+  if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA' || ev.target.tagName === 'SELECT') return;
   if (ev.key === 'Escape') {
     if (menu) closeMenu(); else if (palette) closePalette(); else closePreview();
     return;
   }
   if (handleShortcut(ev)) return;
-  if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && current) {
-    const files = [...document.querySelectorAll('#left li.file')].filter(isShown);
-    const next = files[files.indexOf(current) + (ev.key === 'ArrowDown' ? 1 : -1)];
-    if (next) {
-      ev.preventDefault();
-      showPreview(next);
-      next.scrollIntoView({ block: 'nearest' });
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const keys = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Home', 'End'];
+  if (keys.indexOf(ev.key) < 0) return;
+  const rows = visibleRows();
+  if (!rows.length) return;
+  let li = selLi && document.body.contains(selLi) && isShown(selLi) ? selLi : (current && isShown(current) ? current : null);
+  ev.preventDefault();
+  if (!li) { moveTo(rows[0]); return; }
+  const isFolder = li.classList.contains('folder');
+  const i = rows.indexOf(li);
+  switch (ev.key) {
+    case 'ArrowDown': moveTo(rows[i + 1]); break;
+    case 'ArrowUp':   moveTo(rows[i - 1]); break;
+    case 'Home':      moveTo(rows[0]); break;
+    case 'End':       moveTo(rows[rows.length - 1]); break;
+    case 'ArrowRight':
+      if (isFolder && !li.classList.contains('open')) toggle(li);
+      else if (isFolder) moveTo(visibleRows()[i + 1] && li.contains(visibleRows()[i + 1]) ? visibleRows()[i + 1] : null);
+      break;
+    case 'ArrowLeft':
+      if (isFolder && li.classList.contains('open')) toggle(li);
+      else moveTo(li.parentElement.closest('li.folder'));
+      break;
+    case 'Enter': {
+      if (isFolder) { toggle(li); break; }
+      const now = Date.now();
+      if (lastEnter.li === li && now - lastEnter.t < 600) { openPopup(li._f); lastEnter = { li: null, t: 0 }; }
+      else { showPreview(li); lastEnter = { li: li, t: now }; }
+      break;
     }
+    case ' ':
+      if (isFolder) toggle(li);
+      else if (/^application\/vnd\.google-apps\./.test(li._f.mime)) { select(li); openPopup(li._f); }
+      else { select(li); openLocal(li); }
+      break;
   }
 });
+
+// When the keyboard is somewhere else (small window, preview, another app), grey out the selection and
+// show a hint; hovering or clicking the tree brings the keyboard back without losing the selected item.
+function takeKeyboard() {
+  const a = document.activeElement;
+  if (a && a.tagName === 'IFRAME') a.blur();
+  try { window.focus(); } catch (e) {}
+}
+setInterval(() => {
+  const inFrame = document.activeElement && document.activeElement.tagName === 'IFRAME';
+  document.body.classList.toggle('kbd-away', !!selLi && (!document.hasFocus() || inFrame));
+}, 400);
+document.getElementById('left').addEventListener('mouseenter', () => {
+  const inFrame = document.activeElement && document.activeElement.tagName === 'IFRAME';
+  if (!document.hasFocus() || inFrame) takeKeyboard();
+});
+document.getElementById('kbd-hint').addEventListener('click', ev => { ev.stopPropagation(); takeKeyboard(); });
 
 init();
 </script>
