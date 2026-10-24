@@ -147,6 +147,7 @@
 
 <script>
 const ROOT = <?!= JSON.stringify(rootId) ?>;
+const APP_URL = <?!= JSON.stringify(appUrl) ?>;
 
 const SECTIONS = [
   { id:'__root',   name:'My Drive',        icon:'🏠', url:'https://drive.google.com/drive/my-drive',      lpath:'My Drive' },
@@ -263,6 +264,12 @@ function makeFolder(f, section) {
     row.append(paint);
   }
   if (canHoldDocs(f.id)) {
+    if (!/^__/.test(f.id) && APP_URL) {
+      const nt = el('button', 'act', '🗂️');
+      nt.title = 'Open this folder in a new Drive stablo tab';
+      nt.addEventListener('click', ev => { ev.stopPropagation(); openFolderTab(f); });
+      row.append(nt);
+    }
     const plus = el('button', 'act', '＋');
     plus.title = 'New Google Doc in this folder';
     plus.addEventListener('click', ev => { ev.stopPropagation(); startNewDoc(li); });
@@ -947,11 +954,16 @@ function openMenu(li, x, y) {
     menu.append(el('hr'));
     item('💾', 'Save as .' + office + ' (next to original)', '', () => exportFile(li, 'office', office), true);
     item('📕', 'Save as PDF (next to original)', '', () => exportFile(li, 'pdf', 'pdf'), true);
+    if (office === 'docx') item('Ⓜ️', 'Save as .md (next to original)', '', () => exportFile(li, 'md', 'md'), true);
   }
   if (!isFolder && ed && isMarkdown(li._f)) {
     menu.append(el('hr'));
     item('📝', 'Convert to Google Doc (next to original)', '', () => convertMd(li, 'gdoc'), true);
     item('💾', 'Convert to .docx (next to original)', '', () => convertMd(li, 'docx'), true);
+  }
+  if (isFolder && li._f && !/^__/.test(li._f.id)) {
+    menu.append(el('hr'));
+    item('🗂️', 'Open in a new Drive stablo tab', '', () => openFolderTab(li._f), !!APP_URL);
   }
   if (isFolder && ed) {
     menu.append(el('hr'));
@@ -1026,10 +1038,10 @@ function canSendFile(f) {
 }
 
 /** Direct download link (Google files are converted to Office format). */
-function downloadUrl(f) {
+function downloadUrl(f, fmt) {
   const au = myEmail ? '&authuser=' + encodeURIComponent(myEmail) : '';
   const seg = EXPORT_SEG[f.mime];
-  if (seg) return 'https://docs.google.com/' + seg + '/d/' + f.id + '/export?format=' + OFFICE_EXT[f.mime] + au;
+  if (seg) return 'https://docs.google.com/' + seg + '/d/' + f.id + '/export?format=' + (fmt || OFFICE_EXT[f.mime]) + au;
   return 'https://drive.google.com/uc?export=download&id=' + f.id + au;
 }
 
@@ -1052,8 +1064,13 @@ function downloadFolderZip(f) {
 }
 
 /** Downloads the file to the computer (Google files as .docx/.xlsx/.pptx). */
-function downloadFile(f) {
-  window.open(downloadUrl(f), '_blank');
+/** Opens a folder as the root of a new Drive stablo tab. */
+function openFolderTab(f) {
+  window.open(APP_URL + (APP_URL.indexOf('?') < 0 ? '?' : '&') + 'folder=' + encodeURIComponent(f.id), '_blank');
+}
+
+function downloadFile(f, fmt) {
+  window.open(downloadUrl(f, fmt), '_blank');
   toast('⬇️ Downloading "' + f.name + '"…');
 }
 
@@ -1106,6 +1123,9 @@ function openShare(li, x, y) {
     menu.append(el('hr'), sub);
     item('⬇️', 'Download' + (isFolder ? ' as .zip' : EXPORT_SEG[f.mime] ? ' (as .' + OFFICE_EXT[f.mime] + ')' : ''),
          () => isFolder ? downloadFolderZip(f) : downloadFile(f));
+    if (f.mime === 'application/vnd.google-apps.document') {
+      item('Ⓜ️', 'Download as .md (Markdown)', () => downloadFile(f, 'md'));
+    }
     menu.append(el('hr'));
   }
   item('👤', 'Share with people (email)…', () => openSharePeople(li, x, y));

@@ -17,6 +17,7 @@ function doGet(e) {
   const rootId = /^[-\w]+$/.test(param) ? param : '';
   const tpl = HtmlService.createTemplateFromFile('Index');
   tpl.rootId = rootId;
+  tpl.appUrl = ScriptApp.getService().getUrl() || '';
   return tpl.evaluate()
     .setTitle('Drive stablo')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -262,11 +263,13 @@ function exportAs(id, fmt) {
     'application/vnd.google-apps.presentation': ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'pptx']
   };
   const src = Drive.Files.get(id, { fields: 'id,name,mimeType,parents', supportsAllDrives: true });
-  const target = fmt === 'pdf' ? ['application/pdf', 'pdf'] : OFFICE[src.mimeType];
+  const target = fmt === 'pdf' ? ['application/pdf', 'pdf']
+               : fmt === 'md' ? (src.mimeType === 'application/vnd.google-apps.document' ? ['text/markdown', 'md'] : null)
+               : OFFICE[src.mimeType];
   if (!target || src.mimeType.indexOf('application/vnd.google-apps.') !== 0) {
     throw new Error('Only Google Docs, Sheets and Slides can be saved this way.');
   }
-  const name = src.name.replace(/\.(docx|xlsx|pptx|pdf)$/i, '') + '.' + target[1];
+  const name = src.name.replace(/\.(docx|xlsx|pptx|pdf|md)$/i, '') + '.' + target[1];
   const parent = (src.parents && src.parents[0]) || 'root';
   const blob = exportBlob_(id, target[0]).setName(name).setContentType(target[0]);
   const nf = Drive.Files.create({ name: name, parents: [parent], mimeType: target[0] }, blob,
