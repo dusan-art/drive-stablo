@@ -27,7 +27,8 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 - **Tastatura kao u Windows Exploreru**: ↑/↓ kretanje, →/← otvara/zatvara folder, **Enter** = pregled, **Enter Enter** = mali prozor, **Space** = otvaranje u aplikaciji na računaru, F2, Delete, Ctrl+X/C/V.
 - **Otpremanje** fajlova i celih foldera, dugmetom ili prevlačenjem sa računara, uz prikaz napretka.
 - **Meni za deljenje (📤)** za fajlove i foldere: kopiranje linka, Windows deljenje, **preuzimanje** (Google fajlovi kao .docx/.xlsx/.pptx, folderi kao .zip), **deljenje sa osobama** preko emaila (pregled/komentar/izmena) i *ko ima pristup*.
-- **Pretvaranje**: desni klik na Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx ili PDF** pored originala; desni klik na **Markdown (.md)** fajl → **Google Doc** ili **.docx**.
+- **Pretvaranje**: desni klik na Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx, PDF ili .md (Markdown)** pored originala; desni klik na **Markdown (.md)** fajl → **Google Doc** ili **.docx**. Google Doc se može preuzeti i kao .md iz menija Share.
+- **Folder u novom tabu Drive stabla** (dugme 🗂️ ili desni klik): folder postaje koren novog taba, idealno za dva foldera jedan pored drugog.
 - **Boje foldera** (iste kao u Google Driveu), **ikonice foldera** (bilo koji emodži), **zvezdice**.
 - **Dva taba jedan pored drugog**: prevlačenje i kopiranje između njih, a oba se sama usklađuju.
 - **Otvaranje u aplikaciji na računaru** (opciono, Windows): uz Google Drive for desktop, dugme 🖥️ otvara `.docx`/`.xlsx`/`.pdf`… sa diska G: u Wordu, Excelu… Izmene se same vraćaju na Drive.

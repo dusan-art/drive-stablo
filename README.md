@@ -26,7 +26,8 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 - **Keyboard like Windows Explorer**: ↑/↓ move, →/← open/close folders, **Enter** = preview, **Enter Enter** = small window, **Space** = open in the desktop app, F2 rename, Delete, Ctrl+X/C/V.
 - **Upload** files or whole folders by button or by dragging them from your desktop. Files go straight from the browser to Drive with a progress indicator.
 - **Share menu (📤)** for files and folders: copy link, Windows share, **download** (Google files as .docx/.xlsx/.pptx, folders as .zip), **share with people** by email (view/comment/edit) and *who has access*.
-- **Convert**: right-click a Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx or PDF** next to the original; right-click a **Markdown (.md)** file → **Google Doc** or **.docx**.
+- **Convert**: right-click a Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx, PDF or .md (Markdown)** next to the original; right-click a **Markdown (.md)** file → **Google Doc** or **.docx**. Google Docs can also be downloaded as .md from the Share menu.
+- **Open a folder in a new Drive stablo tab** (🗂️ button or right-click): the folder becomes the root of a new tab, perfect for two folders side by side.
 - **Folder colors** (synced with Google Drive), **custom folder icons** (any emoji), **stars**.
 - **Two tabs side by side** (e.g. Chrome split view): drag between them, copy/paste between them, and both stay in sync.
 - **Open in desktop app** (optional, Windows): with Google Drive for desktop installed, the 🖥️ button opens a `.docx`/`.xlsx`/`.pdf`… from the `G:` drive in Word, Excel and so on. Changes sync back automatically.
