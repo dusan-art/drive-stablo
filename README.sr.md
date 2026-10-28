@@ -22,12 +22,14 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 
 - **Stablo** za *Moj disk*, *Deljeno sa mnom*, *Deljene diskove* i *Sa zvezdicom*. Folderi se otvaraju odmah, jer se sledeći nivo učitava unapred.
 - **Panel za pregled**: klik na fajl otvara pregled (PDF, Office, slike, Google Docs/Sheets/Slides), ↑/↓ prelistava, Esc zatvara. Dupli klik otvara fajl u malom prozoru za uređivanje.
+- **Pregled mejlova (.eml)**: sačuvani mejlovi se otvaraju u panelu za pregled – pošiljalac, primaoci, datum, naslov, formatirana poruka i prilozi za preuzimanje. Poruka se prethodno čisti (bez skripti i formulara).
 - **Pretraga celog Drivea** po nazivu i sadržaju.
 - **Radnje sa fajlovima**: novi folder, novi Google dokument, preimenovanje (F2), iseci/kopiraj/nalepi (Ctrl+X/C/V, i za cele foldere), brisanje u otpad sa „Poništi", premeštanje prevlačenjem.
 - **Tastatura kao u Windows Exploreru**: ↑/↓ kretanje, →/← otvara/zatvara folder, **Enter** = pregled, **Enter Enter** = mali prozor, **Space** = otvaranje u aplikaciji na računaru, F2, Delete, Ctrl+X/C/V.
 - **Otpremanje** fajlova i celih foldera, dugmetom ili prevlačenjem sa računara, uz prikaz napretka.
 - **Meni za deljenje (📤)** za fajlove i foldere: kopiranje linka, Windows deljenje, **preuzimanje** (Google fajlovi kao .docx/.xlsx/.pptx, folderi kao .zip), **deljenje sa osobama** preko emaila (pregled/komentar/izmena) i *ko ima pristup*.
 - **Pretvaranje**: desni klik na Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx, PDF ili .md (Markdown)** pored originala; desni klik na **Markdown (.md)** fajl → **Google Doc** ili **.docx**. Google Doc se može preuzeti i kao .md iz menija Share.
+  Dugme **📝 Google Doc** iznad pregleda .md fajla pretvara ga i odmah otvara novi dokument za uređivanje.
 - **Folder u novom tabu Drive stabla** (dugme 🗂️ ili desni klik): folder postaje koren novog taba, idealno za dva foldera jedan pored drugog.
 - **Boje foldera** (iste kao u Google Driveu), **ikonice foldera** (bilo koji emodži), **zvezdice**.
 - **Dva taba jedan pored drugog**: prevlačenje i kopiranje između njih, a oba se sama usklađuju.

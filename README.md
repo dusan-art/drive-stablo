@@ -21,12 +21,14 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 
 - **Tree view** of *My Drive*, *Shared with me*, *Shared drives* and *Starred*. Folders open instantly because the next level is preloaded in the background.
 - **Preview panel**: click a file to preview it (PDF, Office, images, Google Docs/Sheets/Slides), use ↑/↓ to browse, Esc to close. Double-click opens the file in a small editing window.
+- **E-mail preview (.eml)**: saved e-mails open right in the preview panel – sender, recipients, date, subject, the formatted message and downloadable attachments. The message is cleaned first (no scripts or forms).
 - **Full-Drive search** by name and content, using Google's index.
 - **File operations**: new folder, new Google Doc, rename (F2), cut/copy/paste (Ctrl+X/C/V, including whole folders), delete to Trash with undo, drag & drop to move.
 - **Keyboard like Windows Explorer**: ↑/↓ move, →/← open/close folders, **Enter** = preview, **Enter Enter** = small window, **Space** = open in the desktop app, F2 rename, Delete, Ctrl+X/C/V.
 - **Upload** files or whole folders by button or by dragging them from your desktop. Files go straight from the browser to Drive with a progress indicator.
 - **Share menu (📤)** for files and folders: copy link, Windows share, **download** (Google files as .docx/.xlsx/.pptx, folders as .zip), **share with people** by email (view/comment/edit) and *who has access*.
 - **Convert**: right-click a Google Doc/Sheet/Slides → **Save as .docx/.xlsx/.pptx, PDF or .md (Markdown)** next to the original; right-click a **Markdown (.md)** file → **Google Doc** or **.docx**. Google Docs can also be downloaded as .md from the Share menu.
+  A **📝 Google Doc** button above the preview of a .md file converts it and opens the new Doc for editing.
 - **Open a folder in a new Drive stablo tab** (🗂️ button or right-click): the folder becomes the root of a new tab, perfect for two folders side by side.
 - **Folder colors** (synced with Google Drive), **custom folder icons** (any emoji), **stars**.
 - **Two tabs side by side** (e.g. Chrome split view): drag between them, copy/paste between them, and both stay in sync.
