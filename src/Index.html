@@ -106,6 +106,16 @@
   #pv-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
   #pv-bar button { padding:4px 10px; }
   #pv-frame { flex:1; width:100%; border:0; background:#fff; }
+  #pv-mail { display:none; flex:1; flex-direction:column; min-height:0; }
+  body.mailview #pv-frame { display:none; }
+  body.mailview #pv-mail { display:flex; }
+  body.mailview #pv-edit { display:none; }
+  #pv-gdoc { display:none; }
+  body.mdview #pv-gdoc { display:inline-block; }
+  #pv-mail-head { flex:none; max-height:40%; overflow:auto; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; }
+  .mh-row { margin:2px 0; word-break:break-word; }
+  .mh-att a { display:inline-block; margin:2px 8px 2px 0; }
+  #pv-mail-body { flex:1; min-height:0; overflow:auto; background:#fff; color:#222; }
   #pv-hint { flex:none; color:var(--muted); font-size:12px; padding:4px 10px; border-top:1px solid var(--line); }
 
   @media (max-width:800px) {
@@ -136,11 +146,14 @@
   <div id="preview">
     <div id="pv-bar">
       <span id="pv-title"></span>
+      <button id="pv-gdoc" title="Convert to a Google Doc (next to the original) and open it">📝 Google Doc</button>
       <button id="pv-edit" title="Open in a small window (for editing)">✏️ Window</button>
       <button id="pv-tab" title="Open in a new tab">↗ Tab</button>
       <button id="pv-close" title="Close preview (Esc)">✕</button>
     </div>
     <iframe id="pv-frame" src="about:blank" allow="autoplay; fullscreen"></iframe>
+    <div id="pv-mail"><div id="pv-mail-head"></div>
+      <div id="pv-mail-body"></div></div>
     <div id="pv-hint">↑ / ↓ move · → / ← open / close folder · Enter preview · Enter Enter small window · Space desktop app · Esc closes the preview</div>
   </div>
 </div>
@@ -213,7 +226,195 @@ function showPreview(li) {
   document.body.classList.add('previewing');
   document.getElementById('pv-title').textContent = f.name;
   document.getElementById('pv-title').title = f.name;
-  document.getElementById('pv-frame').src = previewUrl(f);
+  document.body.classList.toggle('mdview', isMarkdown(f));
+  if (isEml(f)) {
+    document.body.classList.add('mailview');
+    document.getElementById('pv-frame').src = 'about:blank';
+    showEml(f);
+  } else {
+    document.body.classList.remove('mailview');
+    document.getElementById('pv-frame').src = previewUrl(f);
+  }
+}
+
+// ---- E-mail (.eml) preview: parsed in the browser, shown in a sandboxed frame (no scripts) ----
+const EML = (() => {
+  const bin = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return s; };
+  const toBytes = s => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
+  const normCs = cs => {
+    cs = String(cs || 'utf-8').toLowerCase().replace(/^["']|["']$/g, '').trim();
+    if (cs === 'utf8' || cs === 'us-ascii' || cs === 'ascii' || cs === 'unicode-1-1-utf-8') return 'utf-8';
+    if (/^cp-?125\d$/.test(cs)) return 'windows-' + cs.replace(/\D/g, '');
+    return cs;
+  };
+  const td = (bytes, cs) => {
+    try { return new TextDecoder(normCs(cs)).decode(bytes); }
+    catch (e) { try { return new TextDecoder('utf-8').decode(bytes); } catch (_) { return bin(bytes); } }
+  };
+  const qp = s => s.replace(/=\r?\n/g, '').replace(/=([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16)));
+  function words(s) {
+    return String(s || '').replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=(\s+(?==\?))?/g, (m, cs, enc, txt) => {
+      let bytes;
+      if (enc.toUpperCase() === 'B') { try { bytes = toBytes(atob(txt.replace(/\s/g, ''))); } catch (e) { return m; } }
+      else bytes = toBytes(qp(txt.replace(/_/g, ' ')));
+      return td(bytes, cs);
+    });
+  }
+  function headers(raw) {
+    const h = {};
+    raw.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(l => {
+      const i = l.indexOf(':');
+      if (i > 0) { const k = l.slice(0, i).trim().toLowerCase(); if (!(k in h)) h[k] = l.slice(i + 1).trim(); }
+    });
+    return h;
+  }
+  function param(v, name) {
+    const m = String(v || '').match(new RegExp('(?:^|;)\\s*' + name + '(\\*?)\\s*=\\s*("([^"]*)"|[^;]+)', 'i'));
+    if (!m) return '';
+    let r = (m[3] !== undefined ? m[3] : m[2]).trim();
+    if (m[1] === '*' && r.indexOf("''") > 0) {          // RFC 2231: utf-8''Na%C5%A1e.pdf
+      const cs = r.slice(0, r.indexOf("'"));
+      r = td(toBytes(r.slice(r.indexOf("''") + 2).replace(/%([0-9A-Fa-f]{2})/g, (x, h) => String.fromCharCode(parseInt(h, 16)))), cs);
+    }
+    return words(r);
+  }
+  function part(s, out, depth) {
+    const sep = s.search(/\r?\n\r?\n/);
+    const h = headers(sep < 0 ? s : s.slice(0, sep));
+    let body = sep < 0 ? '' : s.slice(sep).replace(/^\r?\n\r?\n/, '');
+    const ct = h['content-type'] || 'text/plain', type = ct.split(';')[0].trim().toLowerCase();
+    if (type.indexOf('multipart/') === 0 && depth < 20) {
+      const b = param(ct, 'boundary');
+      if (b) {
+        const end = body.indexOf('--' + b + '--');
+        if (end >= 0) body = body.slice(0, end);
+        body.split('--' + b).slice(1).forEach(p => part(p.replace(/^[ \t]*\r?\n/, ''), out, depth + 1));
+        return h;
+      }
+    }
+    const cte = (h['content-transfer-encoding'] || '').trim().toLowerCase();
+    let bytes;
+    if (cte === 'base64') { try { bytes = toBytes(atob(body.replace(/[^A-Za-z0-9+/=]/g, ''))); } catch (e) { bytes = toBytes(body); } }
+    else if (cte === 'quoted-printable') bytes = toBytes(qp(body));
+    else bytes = toBytes(body);
+    const disp = (h['content-disposition'] || '').toLowerCase();
+    const name = param(h['content-disposition'], 'filename') || param(ct, 'name');
+    const cid = (h['content-id'] || '').replace(/[<>\s]/g, '');
+    if (cid && type.indexOf('image/') === 0) out.cids[cid] = 'data:' + type + ';base64,' + btoa(bin(bytes));
+    const isText = type === 'text/plain' || type === 'text/html';
+    if (/attachment/.test(disp) || type === 'message/rfc822' || (!isText && !cid) || (name && !isText && !/inline/.test(disp))) {
+      out.atts.push({ name: name || (type === 'message/rfc822' ? 'message.eml' : 'attachment'), type: type, bytes: bytes });
+    } else if (type === 'text/html' && out.html == null) out.html = td(bytes, param(ct, 'charset'));
+    else if (type === 'text/plain' && out.text == null) out.text = td(bytes, param(ct, 'charset'));
+    return h;
+  }
+  return {
+    words: words,
+    parse(u8) { const out = { cids: {}, atts: [], html: null, text: null }; out.h = part(bin(u8), out, 0); return out; }
+  };
+})();
+
+let emlSeq = 0, emlUrls = [];
+const emlCache = {};
+
+function isEml(f) {
+  return !!f && (/\.eml$/i.test(f.name) || f.mime === 'message/rfc822');
+}
+
+function showEml(f) {
+  const seq = ++emlSeq;
+  const head = document.getElementById('pv-mail-head');
+  head.replaceChildren(el('div', 'mh-row', 'Loading e-mail…'));
+  mailBody(null);
+  const done = b64 => {
+    emlCache[f.id] = b64;
+    if (seq !== emlSeq) return;
+    try {
+      const bin = atob(b64), u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      renderEml(EML.parse(u8));
+    } catch (e) { head.replaceChildren(el('div', 'mh-row', 'Could not read this e-mail: ' + e.message)); }
+  };
+  if (emlCache[f.id]) return done(emlCache[f.id]);
+  google.script.run
+    .withSuccessHandler(done)
+    .withFailureHandler(err => { if (seq === emlSeq) head.replaceChildren(el('div', 'mh-row', 'Error: ' + err.message)); })
+    .getFileBase64(f.id);
+}
+
+function renderEml(m) {
+  emlUrls.forEach(u => URL.revokeObjectURL(u)); emlUrls = [];
+  const head = document.getElementById('pv-mail-head');
+  head.replaceChildren();
+  [['From', 'from'], ['To', 'to'], ['Cc', 'cc'], ['Date', 'date'], ['Subject', 'subject']].forEach(([label, k]) => {
+    const v = EML.words(m.h[k]);
+    if (!v) return;
+    const row = el('div', 'mh-row');
+    row.append(el('b', null, label + ': '), el('span', null, v));
+    head.append(row);
+  });
+  if (m.atts.length) {
+    const row = el('div', 'mh-row mh-att');
+    row.append(el('b', null, '📎 '));
+    m.atts.forEach(a => {
+      const link = el('a', null, a.name + ' (' + fmtSize(a.bytes.length) + ')');
+      const url = URL.createObjectURL(new Blob([a.bytes], { type: a.type || 'application/octet-stream' }));
+      emlUrls.push(url);
+      link.href = url; link.download = a.name; link.title = 'Download attachment';
+      row.append(link);
+    });
+    head.append(row);
+  }
+  let html = m.html;
+  if (html) html = html.replace(/cid:([^"'\s)>]+)/gi, (x, c) => m.cids[c] || m.cids[decodeURIComponent(c)] || x);
+  else html = '<pre style="white-space:pre-wrap;font:13px/1.5 Arial,sans-serif;margin:0">' +
+              String(m.text || '(no text)').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])) + '</pre>';
+  mailBody(html);
+}
+
+/**
+ * Shows the e-mail HTML inside a shadow root (its styles cannot leak into the app).
+ * Scripts, frames, forms and event handlers are removed first; links open in a new tab.
+ */
+function mailBody(html) {
+  const host = document.getElementById('pv-mail-body');
+  const root = host.shadowRoot || host.attachShadow({ mode: 'open' });
+  host.scrollTop = 0;
+  if (html == null) { root.replaceChildren(); return; }
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  doc.querySelectorAll('script,noscript,iframe,frame,frameset,object,embed,applet,base,meta,link,' +
+                       'input,button,textarea,select,option,portal').forEach(n => n.remove());
+  doc.querySelectorAll('form').forEach(n => n.replaceWith(...n.childNodes));
+  doc.querySelectorAll('*').forEach(n => {
+    [...n.attributes].forEach(a => {
+      const k = a.name.toLowerCase();
+      if (k.indexOf('on') === 0 || k === 'srcdoc' || k === 'formaction' ||
+          (/^(href|src|action|xlink:href|background|poster)$/.test(k) && /^\s*(javascript|vbscript|data:text)/i.test(a.value)))
+        n.removeAttribute(a.name);
+    });
+    if (n.tagName === 'A') { n.target = '_blank'; n.rel = 'noopener noreferrer'; }
+  });
+  // The e-mail's own <style> rules: "body"/"html" selectors are pointed at the wrapper.
+  const css = [...doc.querySelectorAll('style')].map(st => {
+    const t = st.textContent.replace(/(^|[\s,{}>+~])(html|body)(?=[\s,{.#:\[>+~])/gi, '$1.mail-root');
+    st.remove();
+    return t;
+  }).join('\n');
+  const wrap = document.createElement('div');
+  wrap.className = 'mail-root';
+  const b = doc.body;
+  if (b) {
+    if (b.getAttribute('style')) wrap.setAttribute('style', b.getAttribute('style'));
+    if (b.getAttribute('bgcolor')) wrap.style.backgroundColor = b.getAttribute('bgcolor');
+    wrap.append(...b.childNodes);
+  }
+  const base = document.createElement('style');
+  base.textContent = ':host{display:block;contain:layout paint}' +
+    '.mail-root{font:14px/1.5 Arial,sans-serif;padding:12px;word-wrap:break-word;min-height:100%;box-sizing:border-box}' +
+    'img{max-width:100%;height:auto}';
+  const own = document.createElement('style');
+  own.textContent = css;
+  root.replaceChildren(base, own, wrap);
 }
 
 /** A file is visible if it is not filtered out and all folders above it are open. */
@@ -229,8 +430,10 @@ function isShown(li) {
 function closePreview() {
   if (current) current.classList.remove('sel');
   current = null;
-  document.body.classList.remove('previewing');
+  document.body.classList.remove('previewing', 'mailview', 'mdview');
   document.getElementById('pv-frame').src = 'about:blank';
+  mailBody(null);
+  emlSeq++;
 }
 
 function openPopup(f) {
@@ -1007,8 +1210,8 @@ function isMarkdown(f) {
   return !!f && (/\.(md|markdown)$/i.test(f.name) || f.mime === 'text/markdown');
 }
 
-/** Converts a Markdown file to a Google Doc or .docx in the same folder. */
-function convertMd(li, target) {
+/** Converts a Markdown file to a Google Doc or .docx in the same folder (win: a window to open the result in). */
+function convertMd(li, target, win) {
   const f = li._f, known = parentKeyOf(li);
   toast('📝 Converting "' + f.name + '" to ' + (target === 'docx' ? '.docx' : 'a Google Doc') + '…');
   google.script.run
@@ -1017,8 +1220,12 @@ function convertMd(li, target) {
       insertNew(r.item, false, key);
       share({ type: 'add', f: r.item, isFolder: false, key: key });
       toast('✅ Created "' + r.item.name + '" next to the original');
+      if (win && !win.closed) win.location.href = r.item.url;
     })
-    .withFailureHandler(err => toast('Not converted: ' + err.message, null, true))
+    .withFailureHandler(err => {
+      if (win && !win.closed) win.close();
+      toast('Not converted: ' + err.message, null, true);
+    })
     .convertMarkdown(f.id, target);
 }
 
@@ -1687,6 +1894,11 @@ document.getElementById('pv-close').addEventListener('click', closePreview);
 document.addEventListener('click', () => { closePalette(); closeMenu(); });
 document.getElementById('left').addEventListener('scroll', () => { closePalette(); closeMenu(); });
 document.getElementById('pv-edit').addEventListener('click', () => { if (current) openPopup(current._f); });
+document.getElementById('pv-gdoc').addEventListener('click', () => {
+  if (!current || !isMarkdown(current._f)) return;
+  // The window opens right away (on the click) so the browser does not block it; it gets the Doc's URL once it exists.
+  convertMd(current, 'gdoc', openPopup({ url: 'about:blank' }));
+});
 document.getElementById('pv-tab').addEventListener('click', () => { if (current) window.open(current._f.url, '_blank'); });
 
 // ---- Full-Drive search ----

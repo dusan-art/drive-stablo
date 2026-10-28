@@ -345,6 +345,18 @@ function authorize() {
   Logger.log('All permissions OK for ' + JSON.parse(r.getContentText()).user.emailAddress + ' (' + Session.getEffectiveUser().getEmail() + ')');
 }
 
+/** File content as base64 (used for the .eml e-mail preview; up to 20 MB). */
+function getFileBase64(id) {
+  const f = Drive.Files.get(id, { fields: 'size', supportsAllDrives: true });
+  if (Number(f.size) > 20 * 1024 * 1024) throw new Error('The file is too large to preview (max 20 MB) – use the Tab button.');
+  const r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+                              '?alt=media&supportsAllDrives=true', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true
+  });
+  if (r.getResponseCode() !== 200) throw new Error('Could not read the file (' + r.getResponseCode() + ').');
+  return Utilities.base64Encode(r.getContent());
+}
+
 /** Email address of the signed-in owner (for opening Gmail and downloads in the right account). */
 function getMyEmail() {
   return Session.getEffectiveUser().getEmail();
