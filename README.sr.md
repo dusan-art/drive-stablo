@@ -21,7 +21,7 @@ Folderi se otvaraju strelicama u mestu, fajlovi se vide pored njih, a sve svakod
 ## Mogućnosti
 
 - **Stablo** za *Moj disk*, *Deljeno sa mnom*, *Deljene diskove* i *Sa zvezdicom*. Folderi se otvaraju odmah, jer se sledeći nivo učitava unapred.
-- **Panel za pregled**: klik na fajl otvara pregled (PDF, Office, slike, Google Docs/Sheets/Slides), ↑/↓ prelistava, Esc zatvara. Dupli klik otvara fajl u malom prozoru za uređivanje.
+- **Panel za pregled**: klik na fajl otvara pregled (PDF, Office, slike, Google Docs/Sheets/Slides), ↑/↓ prelistava, Esc zatvara. **Google Docs se otvara u editoru**, pa ga možeš uređivati direktno u pregledu. Dupli klik otvara fajl u malom prozoru za uređivanje.
 - **Pregled mejlova (.eml)**: sačuvani mejlovi se otvaraju u panelu za pregled – pošiljalac, primaoci, datum, naslov, formatirana poruka i prilozi za preuzimanje. Poruka se prethodno čisti (bez skripti i formulara).
 - **Pretraga celog Drivea** po nazivu i sadržaju.
 - **Radnje sa fajlovima**: novi folder, novi Google dokument, novi **Markdown (.md)** fajl (＋ .md: u označenom folderu, ili u Moj disk ako ništa nije označeno), preimenovanje (F2), iseci/kopiraj/nalepi (Ctrl+X/C/V, i za cele foldere), brisanje u otpad sa „Poništi", premeštanje prevlačenjem.

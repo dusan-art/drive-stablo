@@ -20,7 +20,7 @@ Folders expand in place with arrows, files show next to them, and everyday file 
 ## Features
 
 - **Tree view** of *My Drive*, *Shared with me*, *Shared drives* and *Starred*. Folders open instantly because the next level is preloaded in the background.
-- **Preview panel**: click a file to preview it (PDF, Office, images, Google Docs/Sheets/Slides), use ↑/↓ to browse, Esc to close. Double-click opens the file in a small editing window.
+- **Preview panel**: click a file to preview it (PDF, Office, images, Google Docs/Sheets/Slides), use ↑/↓ to browse, Esc to close. **Google Docs open in the editor**, so you can edit them right in the preview. Double-click opens the file in a small editing window.
 - **E-mail preview (.eml)**: saved e-mails open right in the preview panel – sender, recipients, date, subject, the formatted message and downloadable attachments. The message is cleaned first (no scripts or forms).
 - **Full-Drive search** by name and content, using Google's index.
 - **File operations**: new folder, new Google Doc, new **Markdown (.md)** file (＋ .md: in the selected folder, or My Drive if none), rename (F2), cut/copy/paste (Ctrl+X/C/V, including whole folders), delete to Trash with undo, drag & drop to move.
