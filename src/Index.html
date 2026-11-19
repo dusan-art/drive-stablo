@@ -29,7 +29,7 @@
   li.newdoc .row { background:var(--sel); }
   li.newdoc input { flex:1; min-width:0; padding:3px 8px; border:1px solid var(--accent); border-radius:6px;
                     background:var(--bg); color:var(--fg); font:inherit; }
-  #newdoc { border-color:var(--accent); color:var(--accent); }
+  #newdoc, #newmd { border-color:var(--accent); color:var(--accent); }
   #newfolder { border-color:var(--accent); color:var(--accent); }
   #upload { border-color:var(--accent); color:var(--accent); }
   .palette { position:fixed; z-index:20; background:var(--bg); border:1px solid var(--line); border-radius:10px;
@@ -110,8 +110,6 @@
   body.mailview #pv-frame { display:none; }
   body.mailview #pv-mail { display:flex; }
   body.mailview #pv-edit { display:none; }
-  #pv-gdoc { display:none; }
-  body.mdview #pv-gdoc { display:inline-block; }
   #pv-mail-head { flex:none; max-height:40%; overflow:auto; padding:8px 12px; border-bottom:1px solid var(--line); font-size:13px; }
   .mh-row { margin:2px 0; word-break:break-word; }
   .mh-att a { display:inline-block; margin:2px 8px 2px 0; }
@@ -132,6 +130,7 @@
   <button id="upload" title="Upload files from your computer to the last opened folder (or drag them onto a folder)">⬆ Upload</button>
   <button id="newfolder" title="New folder in the last opened folder">＋ Folder</button>
   <button id="newdoc" title="New Google Doc in the last opened folder">＋ Document</button>
+  <button id="newmd" title="New Markdown (.md) file in the last opened folder – edited in Google Docs">＋ .md</button>
   <input type="file" id="upfiles" multiple hidden>
   <input type="file" id="updir" webkitdirectory hidden>
   <button id="collapse" title="Collapse all open folders">Collapse all</button>
@@ -146,7 +145,6 @@
   <div id="preview">
     <div id="pv-bar">
       <span id="pv-title"></span>
-      <button id="pv-gdoc" title="Convert to a Google Doc (next to the original) and open it">📝 Google Doc</button>
       <button id="pv-edit" title="Open in a small window (for editing)">✏️ Window</button>
       <button id="pv-tab" title="Open in a new tab">↗ Tab</button>
       <button id="pv-close" title="Close preview (Esc)">✕</button>
@@ -211,7 +209,13 @@ function el(tag, cls, text) {
 // ---- Preview and small window ----
 let current = null; // li of the file being previewed
 
+/** Markdown files open natively in Google Docs (no conversion): preview, small window and new tab all use the editor. */
+function mdDocUrl(f) {
+  return 'https://docs.google.com/document/d/' + f.id + '/edit';
+}
+
 function previewUrl(f) {
+  if (isMarkdown(f)) return mdDocUrl(f);
   const g = GAPPS[f.mime];
   return g ? 'https://docs.google.com/' + g + '/d/' + f.id + '/preview'
            : 'https://drive.google.com/file/d/' + f.id + '/preview';
@@ -226,7 +230,6 @@ function showPreview(li) {
   document.body.classList.add('previewing');
   document.getElementById('pv-title').textContent = f.name;
   document.getElementById('pv-title').title = f.name;
-  document.body.classList.toggle('mdview', isMarkdown(f));
   if (isEml(f)) {
     document.body.classList.add('mailview');
     document.getElementById('pv-frame').src = 'about:blank';
@@ -430,7 +433,7 @@ function isShown(li) {
 function closePreview() {
   if (current) current.classList.remove('sel');
   current = null;
-  document.body.classList.remove('previewing', 'mailview', 'mdview');
+  document.body.classList.remove('previewing', 'mailview');
   document.getElementById('pv-frame').src = 'about:blank';
   mailBody(null);
   emlSeq++;
@@ -500,6 +503,7 @@ function makeFolder(f, section) {
 
 function makeFile(f) {
   const li = el('li', 'file');
+  if (isMarkdown(f)) f.url = mdDocUrl(f);
   li._f = f;
   li.dataset.name = f.name.toLowerCase();
   const row = el('div', 'row');
@@ -1141,6 +1145,7 @@ function openMenu(li, x, y) {
   const where = tgt ? ' in "' + tgt.name + '"' : '';
   item('📁', 'New folder' + where, '', () => startNewFolder(tgt.li), !!tgt);
   item('📝', 'New document' + where, '', () => startNewDoc(tgt.li), !!tgt);
+  item('Ⓜ️', 'New .md file' + where, '', () => startNewDoc(tgt.li, true), !!tgt);
   item('⬆️', 'Upload files' + where.replace(' in ', ' to '), '', () => pickUpload(tgt, false), !!tgt);
   item('📂', 'Upload folder' + where.replace(' in ', ' to '), '', () => pickUpload(tgt, true), !!tgt);
   menu.append(el('hr'));
@@ -1768,8 +1773,8 @@ function canHoldDocs(id) {
   return id !== '__shared' && id !== '__drives' && id !== '__starred';
 }
 
-/** Shows a name field in the given folder (li), or at the tree root if li is not given. */
-function startNewDoc(li) {
+/** Shows a name field in the given folder (li), or at the tree root if li is not given (md: a Markdown file). */
+function startNewDoc(li, md) {
   let ul, folderId;
   if (li) {
     if (!li.classList.contains('open')) toggle(li);
@@ -1785,9 +1790,9 @@ function startNewDoc(li) {
   const form = el('li', 'newdoc');
   const row = el('div', 'row');
   const input = el('input');
-  input.placeholder = 'New document name – Enter to create, Esc to cancel';
+  input.placeholder = (md ? 'New .md file name' : 'New document name') + ' – Enter to create, Esc to cancel';
   const status = el('span', 'meta', '');
-  row.append(el('span', 'tw', ''), el('span', 'ic', '📝'), input, status);
+  row.append(el('span', 'tw', ''), el('span', 'ic', md ? 'Ⓜ️' : '📝'), input, status);
   form.append(row);
   ul.prepend(form);
   input.focus();
@@ -1796,11 +1801,12 @@ function startNewDoc(li) {
     ev.stopPropagation();
     if (ev.key === 'Escape') { form.remove(); return; }
     if (ev.key !== 'Enter' || input.disabled) return;
-    const name = input.value.trim() || 'New document';
+    const name = input.value.trim() || (md ? 'New note' : 'New document');
     // Open the window right away (on the key press) so the browser does not block it; it gets its URL once the doc exists.
-    const win = openPopup({ url: 'about:blank' });
+    // A new .md file opens for editing in the preview panel instead (Google Docs edits Markdown natively).
+    const win = md ? null : openPopup({ url: 'about:blank' });
     input.disabled = true;
-    status.textContent = 'Creating document…';
+    status.textContent = md ? 'Creating .md file…' : 'Creating document…';
     google.script.run
       .withSuccessHandler(f => {
         form.remove();
@@ -1811,7 +1817,7 @@ function startNewDoc(li) {
         ul.insertBefore(fileLi, firstFile);
         const note = ul.querySelector(':scope > li.note:not(.warn)');
         if (note) note.remove(); // "(empty)"
-        if (win && !win.closed) win.location.href = f.url; else openPopup(f);
+        if (!md) { if (win && !win.closed) win.location.href = f.url; else openPopup(f); }
         showPreview(fileLi);
       })
       .withFailureHandler(err => {
@@ -1819,7 +1825,7 @@ function startNewDoc(li) {
         input.disabled = false;
         status.textContent = 'Error: ' + err.message;
       })
-      .createDoc(name, folderId);
+      [md ? 'createMd' : 'createDoc'](name, folderId);
   });
 }
 
@@ -1890,15 +1896,18 @@ document.getElementById('newdoc').addEventListener('click', () => {
                : (ROOT ? null : document.querySelector('#tree > ul > li.section')); // otherwise My Drive
   startNewDoc(target);
 });
+// "＋ .md" goes into the selected folder (or the folder of the selected file); with nothing selected, into My Drive (root).
+document.getElementById('newmd').addEventListener('click', () => {
+  let target = (selLi && document.body.contains(selLi)) ? selLi : null;
+  if (target && !target.classList.contains('folder')) target = target.parentElement.closest('li.folder');
+  if (target && !canHoldDocs(target.dataset.id)) target = null;
+  if (!target) target = ROOT ? null : document.querySelector('#tree > ul > li.section'); // root
+  startNewDoc(target, true);
+});
 document.getElementById('pv-close').addEventListener('click', closePreview);
 document.addEventListener('click', () => { closePalette(); closeMenu(); });
 document.getElementById('left').addEventListener('scroll', () => { closePalette(); closeMenu(); });
 document.getElementById('pv-edit').addEventListener('click', () => { if (current) openPopup(current._f); });
-document.getElementById('pv-gdoc').addEventListener('click', () => {
-  if (!current || !isMarkdown(current._f)) return;
-  // The window opens right away (on the click) so the browser does not block it; it gets the Doc's URL once it exists.
-  convertMd(current, 'gdoc', openPopup({ url: 'about:blank' }));
-});
 document.getElementById('pv-tab').addEventListener('click', () => { if (current) window.open(current._f.url, '_blank'); });
 
 // ---- Full-Drive search ----

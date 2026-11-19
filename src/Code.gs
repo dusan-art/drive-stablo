@@ -126,6 +126,21 @@ function createDoc(name, folderId) {
   return bucket.files[0];
 }
 
+/** Creates a new Markdown (.md) file in the given folder; Google Docs opens and edits it natively. */
+function createMd(name, folderId) {
+  name = String(name || '').trim() || 'New note';
+  const title = name.replace(/\.(md|markdown)$/i, '');
+  if (!/\.(md|markdown)$/i.test(name)) name += '.md';
+  const parent = (!folderId || folderId === '__root') ? 'root' : folderId;
+  const blob = Utilities.newBlob('# ' + title + '\n\n', 'text/markdown', name);
+  const f = Drive.Files.create({ name: name, mimeType: 'text/markdown', parents: [parent] }, blob,
+    { supportsAllDrives: true, fields: 'id,name,mimeType,size,modifiedTime,webViewLink,parents' });
+  if (!f.modifiedTime) f.modifiedTime = new Date().toISOString();
+  const bucket = { folders: [], files: [] };
+  classify_(f, bucket, false);
+  return bucket.files[0];
+}
+
 /** Saves the chosen folder icon (emoji) as a Drive file property; empty = default. */
 function setFolderEmoji(id, emoji) {
   emoji = String(emoji || '').trim();
