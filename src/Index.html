@@ -217,6 +217,8 @@ function mdDocUrl(f) {
 function previewUrl(f) {
   if (isMarkdown(f)) return mdDocUrl(f);
   const g = GAPPS[f.mime];
+  // Google Docs open in the editor, so they can be edited right in the preview panel
+  if (g === 'document') return 'https://docs.google.com/document/d/' + f.id + '/edit';
   return g ? 'https://docs.google.com/' + g + '/d/' + f.id + '/preview'
            : 'https://drive.google.com/file/d/' + f.id + '/preview';
 }
